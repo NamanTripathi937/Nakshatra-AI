@@ -1,36 +1,7 @@
-# import os
-# from dotenv import load_dotenv
-# import requests
-
-# load_dotenv()
-# rapid_api_key = os.getenv("rapidapi-key")
-
-# url = "https://kundli-pro.p.rapidapi.com/"
-
-# headers = {
-#     "x-rapidapi-key": rapid_api_key,
-#     "x-rapidapi-host": "kundli-pro.p.rapidapi.com",
-#     "Accept": "application/json",
-#     "Content-Type": "application/json",
-#     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"  
-# }
-
-# payload = {
-#     "birthdate": "15-06-1989",
-#     "birthtime": "16:44",
-#     "birthlongitude": "77.7",
-#     "birthlatitude": "28.98",
-#     "birthtimezone": "5.5"
-# }
-# def get_kundli_data():
-#     response = requests.post(url, headers=headers, json=payload)
-
-#     return response.text
-
-
 import os
 from dotenv import load_dotenv
 import requests
+import httpx
 import json
 
 load_dotenv()
@@ -46,13 +17,13 @@ headers = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"  
 }
 
-payload = {
-    "birthdate": "15-06-1989",
-    "birthtime": "16:44",
-    "birthlongitude": "77.7",
-    "birthlatitude": "28.98",
-    "birthtimezone": "5.5"
-}
+# payload = {
+#     "birthdate": "15-06-1989",
+#     "birthtime": "16:44",
+#     "birthlongitude": "77.7",
+#     "birthlatitude": "28.98",
+#     "birthtimezone": "5.5"
+# }
 
 def extract_essential_kundli_data(full_response):
     """Extract only the essential astrological data needed for most queries"""
@@ -113,8 +84,10 @@ def extract_essential_kundli_data(full_response):
     
     return json.dumps(essential_data, indent=2)
 
-def get_kundli_data():
-    response = requests.post(url, headers=headers, json=payload)
-    if response.status_code == 200:
-        return extract_essential_kundli_data(response.text)
-    return None
+async def get_kundli_data(payload):
+    async with httpx.AsyncClient() as client:
+        response = await client.post(url, headers=headers, json=payload)
+        if response.status_code == 200:
+            print("Kundli data retrieved successfully", response.text)
+            return extract_essential_kundli_data(response.text)
+        return None

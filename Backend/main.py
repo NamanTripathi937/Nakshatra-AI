@@ -2,47 +2,54 @@ from langchain_groq import ChatGroq
 import os
 from dotenv import load_dotenv
 from api.astrology import get_kundli_data
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+from api.astrology import get_kundli_data
+
+app = FastAPI()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # for dev, use actual domain in prod
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 
 load_dotenv()
 api_key = os.getenv("GROQ_API_KEY")
 
-kundli_data = get_kundli_data()
-
-if not kundli_data:
-    print("Failed to retrieve kundli data")
-    exit()
-
-# Prepare your prompt with STRICT instructions
-prompt = f"""
-You are an expert astrologer analyzing a kundli. Follow these rules STRICTLY:
-1. NEVER include <think> or </think> blocks
-2. NEVER show your reasoning process
-3. ONLY provide the final analysis
-4. Use markdown formatting with these exact section headings:
-   - **1. Personality Traits**
-   - **2. Current Planetary Influences**
-   - **3. Notable Planetary Placements**
-   - **4. Important Yogas/Doshas**
-
-Birth Details:
-- Date: 15-06-1989
-- Time: 16:44
-- Location: Latitude 28.98, Longitude 77.7, Timezone +5.5
-
-Kundli Data:
-{kundli_data}
-
-Now provide the analysis following ALL rules above:
-"""
-
 # Send to LLM
 llm = ChatGroq(
-    model="deepseek-r1-distill-llama-70b",
+    model="llama3-70b-8192",
     api_key=api_key
 )
 
-response = llm.invoke(prompt)
+@app.post("/kundli")
+async def kundli(request: Request):
+    payload = await request.json()
 
-# Post-processing to ensure no think blocks remain
-final_output = response.content.replace("<think>", "").replace("</think>", "").strip()
-print(final_output)
+    # 1. Get kundli data from RapidAPI
+    kundli_data =await get_kundli_data(payload)
+
+    if not kundli_data:
+        return {"error": "Failed to fetch kundli data"}
+
+    # 2. Prepare prompt
+    prompt = f"""
+    You are an expert astrologer analyzing a kundli. Follow these rules STRICTLY:
+    1. NEVER show your reasoning process
+    2. ONLY provide the final analysis
+
+    Kundli Data:
+    {kundli_data}
+
+    Now provide the analysis following ALL rules above:
+    """
+
+    # 3. Send prompt to Groq LLM
+    response = llm.invoke(prompt)
+
+    # 4. Return LLM output
+    print("generated LLM response successfully", response.content)
+    return {"analysis": response.content}
