@@ -1,0 +1,79 @@
+# -------------------------------
+# OS Files
+# -------------------------------
+.DS_Store
+Thumbs.db
+
+# -------------------------------
+# Python (Backend)
+# -------------------------------
+*.pyc
+__pycache__/
+.env
+.venv/
+venv/
+.env.local
+
+# VSCode/IDE
+.vscode/
+.idea/
+
+# Python logs
+*.log
+
+# FastAPI / Flask uploads
+instance/
+*.db
+*.sqlite3
+
+# -------------------------------
+# Node (Frontend)
+# -------------------------------
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+dist/
+build/
+.next/
+out/
+
+# Next.js, React, Vite
+.env.development
+.env.production
+.env.test
+
+# -------------------------------
+# General
+# -------------------------------
+.env
+Backend/.env
+.env.*
+*.local
+*.secret
+*.bak
+*.swp
+*.lock
+
+# -------------------------------
+# OS / Git Artifacts
+# -------------------------------
+*.bak
+*.swp
+*.swo
+*.tmp
+*.orig
+*.log
+
+# JetBrains
+.idea/
+*.iml
+
+# -------------------------------
+# Output / Export folders
+# -------------------------------
+coverage/
+logs/
+temp/
+cache/
+exported/
