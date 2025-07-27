@@ -1,6 +1,6 @@
 'use client';
 import { useState } from "react";
-import type { KundliInput } from "../types";
+import type { KundliInput } from "../lib/types";
 
 export default function KundliForm({ onSubmit }: { onSubmit: (data: KundliInput) => void }) {
   const [form, setForm] = useState<KundliInput>({
