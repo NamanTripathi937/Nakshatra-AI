@@ -29,13 +29,11 @@ llm = ChatGroq(
 async def kundli(request: Request):
     payload = await request.json()
 
-    # 1. Get kundli data from RapidAPI
-    kundli_data =await get_kundli_data(payload)
+    kundli_data = await get_kundli_data(payload)
 
     if not kundli_data:
         return {"error": "Failed to fetch kundli data"}
 
-    # 2. Prepare prompt
     prompt = f"""
     You are an expert astrologer analyzing a kundli. Follow these rules STRICTLY:
     1. NEVER show your reasoning process
@@ -47,9 +45,5 @@ async def kundli(request: Request):
     Now provide the analysis following ALL rules above:
     """
 
-    # 3. Send prompt to Groq LLM
     response = llm.invoke(prompt)
-
-    # 4. Return LLM output
-    print("generated LLM response successfully", response.content)
-    return {"analysis": response.content}
+    return {response.content.strip()}
