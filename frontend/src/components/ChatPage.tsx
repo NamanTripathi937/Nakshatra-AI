@@ -26,7 +26,7 @@ export default function ChatComponent() {
   const scrollAreaRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
-  const handleFormSubmit = async (data: KundliInput) => {
+  const handleFormSubmit = async (data : any) => {
     setFormSubmitted(true)
 
     setMessages(prev => [
@@ -34,10 +34,10 @@ export default function ChatComponent() {
       {
         id: Date.now().toString(),
         sender: "user",
-        content: "User submitted birth details ✅",
+        content: "We have recieved your Birth Details . For privacy purposes we are not saving it anywhere ✅",
       },
     ])
-
+    //Handles the form submission and sends data to the backend
     const res = await fetch("/api/kundli", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -75,26 +75,46 @@ export default function ChatComponent() {
     scrollToBottom()
   }, [messages])
 
-  const handleSendMessage = () => {
-    if (inputMessage.trim()) {
+  const newMessage = inputMessage.trim();
+
+  const handleSendMessage = async () => {
+    if (newMessage) {
       const userMsg: Message = {
         id: Date.now().toString(),
-        content: inputMessage.trim(),
+        content: newMessage,
         sender: "user",
       }
 
       setMessages(prev => [...prev, userMsg])
+
       setInputMessage("")
 
-      setTimeout(() => {
-        const aiMsg: Message = {
+      // setTimeout(() => {
+      //   const aiMsg: Message = {
+      //     id: (Date.now() + 1).toString(),
+      //     content:
+      //       "Thank you for your question.\n\nHere's a sample AI markdown response:\n\n**Planet Positions**:\n- Sun: Leo ♌️\n- Moon: Taurus ♉️\n\n```js\nconst karma = 'your destiny';\n```\n\n> Trust the universe 🌌",
+      //     sender: "ai",
+      //   }
+      //   setMessages(prev => [...prev, aiMsg])
+      // }, 1000)
+      // Send to backend
+      console.log("Sending message to backend:", newMessage);
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: newMessage }),
+      })
+
+      const result = await res.json()
+      setMessages(prev => [
+        ...prev,
+        {
           id: (Date.now() + 1).toString(),
-          content:
-            "Thank you for your question.\n\nHere's a sample AI markdown response:\n\n**Planet Positions**:\n- Sun: Leo ♌️\n- Moon: Taurus ♉️\n\n```js\nconst karma = 'your destiny';\n```\n\n> Trust the universe 🌌",
           sender: "ai",
-        }
-        setMessages(prev => [...prev, aiMsg])
-      }, 1000)
+          content: result.response, // instead of raw
+        },
+      ])
     }
   }
 
@@ -126,21 +146,18 @@ export default function ChatComponent() {
             {messages.map((msg) => (
               <div
                 key={msg.id}
-                className={`flex ${
-                  msg.sender === "user" ? "justify-end" : "justify-start"
-                }`}
+                className={`flex ${msg.sender === "user" ? "justify-end" : "justify-start"
+                  }`}
               >
                 <div
-                  className={`max-w-[80%] sm:max-w-[70%] ${
-                    msg.sender === "user" ? "order-2" : "order-1"
-                  }`}
+                  className={`max-w-[80%] sm:max-w-[70%] ${msg.sender === "user" ? "order-2" : "order-1"
+                    }`}
                 >
                   <Card
-                    className={`px-4 pt-2 pb-4 shadow-md ${
-                      msg.sender === "user"
+                    className={`px-4 pt-2 pb-4 shadow-md ${msg.sender === "user"
                         ? "bg-gray-800 text-white"
                         : "bg-gray-900 border border-gray-700 text-white"
-                    }`}
+                      }`}
                   >
                     {msg.sender === "ai" ? (
                       <div className="prose prose-invert text-sm leading-relaxed whitespace-pre-wrap max-w-none">
@@ -160,18 +177,16 @@ export default function ChatComponent() {
 
                   {/* Avatar */}
                   <div
-                    className={`flex mt-2 ${
-                      msg.sender === "user"
+                    className={`flex mt-2 ${msg.sender === "user"
                         ? "justify-end"
                         : "justify-start"
-                    }`}
+                      }`}
                   >
                     <div
-                      className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium ${
-                        msg.sender === "user"
+                      className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium ${msg.sender === "user"
                           ? "bg-gradient-to-r from-black to-blue-400 text-white"
                           : "bg-gradient-to-r from-gray-500 to-gray-1000 text-white"
-                      }`}
+                        }`}
                     >
                       {msg.sender === "user" ? "You" : "AI"}
                     </div>

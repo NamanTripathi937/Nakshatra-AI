@@ -5,6 +5,9 @@ from api.astrology import get_kundli_data
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from api.astrology import get_kundli_data
+from langchain.chains import ConversationChain
+from langchain.memory import ConversationBufferMemory
+from fastapi.responses import JSONResponse
 
 app = FastAPI()
 app.add_middleware(
@@ -25,15 +28,33 @@ llm = ChatGroq(
     api_key=api_key
 )
 
+memory = ConversationBufferMemory()
+
+conversation = ConversationChain(
+    llm=llm,
+    memory=memory,
+    verbose=True
+)
+
 @app.post("/kundli")
 async def kundli(request: Request):
-    payload = await request.json()
+    data = await request.json()
 
-    kundli_data = get_kundli_data(payload)
+    kundli_data = get_kundli_data(data)
 
-    if not kundli_data:
-        return {"error": "Failed to fetch kundli data"}
+    user_message = data.get("message")
 
+    # if not user_message or not isinstance(user_message, str):
+    #         return {"error": "Failed to fetch kundli data"}
+    
+    # Prepare the system message for memory
+    intro = f"""This is the user's Kundli data for reference during the chat:\n{kundli_data}"""
+
+    # Add this system message to memory as if it was part of the conversation
+    memory.chat_memory.add_user_message("My birth details")
+    memory.chat_memory.add_ai_message(intro)
+
+    # You can also get a response from the LLM, if you want
     prompt = f"""
     You are an expert astrologer analyzing a kundli. Follow these rules STRICTLY:
     1. NEVER show your reasoning process
@@ -41,9 +62,18 @@ async def kundli(request: Request):
 
     Kundli Data:
     {kundli_data}
-
-    Now provide the analysis following ALL rules above:
     """
 
     response = llm.invoke(prompt)
     return {response.content.strip()}
+
+@app.post("/chat")
+async def chat(request: Request):
+    data = await request.json()
+    print("Received data in /chat:", data)
+
+    response = conversation.predict(input=data["query"])
+
+    return JSONResponse(content={"response": response.strip()})
+# uvicorn main:app --host 0.0.0.0 --port 8000 --reload    
+# .\venv\Scripts\Activate.ps1  
