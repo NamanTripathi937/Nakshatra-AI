@@ -31,7 +31,11 @@ export default function ChatComponent() {
 
     setMessages(prev => [
       ...prev,
-      { id: Date.now().toString(), sender: "user", content: "User submitted birth details ✅" }
+      {
+        id: Date.now().toString(),
+        sender: "user",
+        content: "User submitted birth details ✅",
+      },
     ])
 
     const res = await fetch("/api/kundli", {
@@ -40,15 +44,30 @@ export default function ChatComponent() {
       body: JSON.stringify(data),
     })
 
-    const result = await res.text()
+    let raw = await res.text()
+
+    // If the response is a JSON array of string (e.g., ["text with \n newlines"])
+    try {
+      const parsed = JSON.parse(raw)
+      if (Array.isArray(parsed)) raw = parsed.join("\n")
+    } catch (e) {
+      console.log(e);
+    }
+
     setMessages(prev => [
       ...prev,
-      { id: (Date.now() + 1).toString(), sender: "ai", content: result }
+      {
+        id: (Date.now() + 1).toString(),
+        sender: "ai",
+        content: raw,
+      },
     ])
   }
 
   const scrollToBottom = () => {
-    const container = scrollAreaRef.current?.querySelector("[data-radix-scroll-area-viewport]")
+    const container = scrollAreaRef.current?.querySelector(
+      "[data-radix-scroll-area-viewport]"
+    )
     if (container) container.scrollTop = container.scrollHeight
   }
 
@@ -70,7 +89,8 @@ export default function ChatComponent() {
       setTimeout(() => {
         const aiMsg: Message = {
           id: (Date.now() + 1).toString(),
-          content: "Thank you for your question.\n\nHere's a sample AI markdown response:\n\n**Planet Positions**:\n- Sun: Leo ♌️\n- Moon: Taurus ♉️\n\n```js\nconst karma = 'your destiny';\n```\n\n> Trust the universe 🌌",
+          content:
+            "Thank you for your question.\n\nHere's a sample AI markdown response:\n\n**Planet Positions**:\n- Sun: Leo ♌️\n- Moon: Taurus ♉️\n\n```js\nconst karma = 'your destiny';\n```\n\n> Trust the universe 🌌",
           sender: "ai",
         }
         setMessages(prev => [...prev, aiMsg])
@@ -104,12 +124,24 @@ export default function ChatComponent() {
         <ScrollArea ref={scrollAreaRef} className="h-full px-4 py-0">
           <div className="max-w-4xl mx-auto space-y-2">
             {messages.map((msg) => (
-              <div key={msg.id} className={`flex ${msg.sender === "user" ? "justify-end" : "justify-start"}`}>
-                <div className={`max-w-[80%] sm:max-w-[70%] ${msg.sender === "user" ? "order-2" : "order-1"}`}>
-                  <Card className={`px-4 pt-2 pb-4 shadow-md ${msg.sender === "user"
-                    ? "bg-gray-800 text-white"
-                    : "bg-gray-900 border border-gray-700 text-white"
-                    }`}>
+              <div
+                key={msg.id}
+                className={`flex ${
+                  msg.sender === "user" ? "justify-end" : "justify-start"
+                }`}
+              >
+                <div
+                  className={`max-w-[80%] sm:max-w-[70%] ${
+                    msg.sender === "user" ? "order-2" : "order-1"
+                  }`}
+                >
+                  <Card
+                    className={`px-4 pt-2 pb-4 shadow-md ${
+                      msg.sender === "user"
+                        ? "bg-gray-800 text-white"
+                        : "bg-gray-900 border border-gray-700 text-white"
+                    }`}
+                  >
                     {msg.sender === "ai" ? (
                       <div className="prose prose-invert text-sm leading-relaxed whitespace-pre-wrap max-w-none">
                         <ReactMarkdown
@@ -120,16 +152,27 @@ export default function ChatComponent() {
                         </ReactMarkdown>
                       </div>
                     ) : (
-                      <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.content}</p>
+                      <p className="text-sm leading-relaxed whitespace-pre-wrap">
+                        {msg.content}
+                      </p>
                     )}
                   </Card>
 
                   {/* Avatar */}
-                  <div className={`flex mt-2 ${msg.sender === "user" ? "justify-end" : "justify-start"}`}>
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium ${msg.sender === "user"
-                      ? "bg-gradient-to-r from-black to-blue-400 text-white"
-                      : "bg-gradient-to-r from-gray-500 to-gray-1000 text-white"
-                      }`}>
+                  <div
+                    className={`flex mt-2 ${
+                      msg.sender === "user"
+                        ? "justify-end"
+                        : "justify-start"
+                    }`}
+                  >
+                    <div
+                      className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium ${
+                        msg.sender === "user"
+                          ? "bg-gradient-to-r from-black to-blue-400 text-white"
+                          : "bg-gradient-to-r from-gray-500 to-gray-1000 text-white"
+                      }`}
+                    >
                       {msg.sender === "user" ? "You" : "AI"}
                     </div>
                   </div>

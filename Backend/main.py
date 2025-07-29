@@ -29,7 +29,7 @@ llm = ChatGroq(
 async def kundli(request: Request):
     payload = await request.json()
 
-    kundli_data = await get_kundli_data(payload)
+    kundli_data = get_kundli_data(payload)
 
     if not kundli_data:
         return {"error": "Failed to fetch kundli data"}
