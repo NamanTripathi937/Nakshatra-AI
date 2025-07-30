@@ -1,11 +1,10 @@
 import os
 from dotenv import load_dotenv
+import requests
+import json
 
 load_dotenv()
 rapid_api_key = os.getenv("rapidapi-key")
-
-import requests
-import json
 
 api_key = os.getenv("free-api-key")
 

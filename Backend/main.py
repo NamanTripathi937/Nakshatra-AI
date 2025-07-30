@@ -44,9 +44,6 @@ async def kundli(request: Request):
 
     user_message = data.get("message")
 
-    # if not user_message or not isinstance(user_message, str):
-    #         return {"error": "Failed to fetch kundli data"}
-    
     # Prepare the system message for memory
     intro = f"""This is the user's Kundli data for reference during the chat:\n{kundli_data}"""
 
