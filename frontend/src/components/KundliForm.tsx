@@ -107,7 +107,7 @@ const handleInputChange = (field: string, value: string) => {
                   />
                   <Input
                     type="number"
-                    placeholder="MM"
+                    placeholder="Min"
                     value={formData.minutes}
                     onChange={(e) => handleInputChange("minutes", e.target.value)}
                     className="h-9 w-full bg-black border-gray-600 text-gray-100 text-xs placeholder:text-gray-400 focus:border-purple-400 focus:ring-purple-400"

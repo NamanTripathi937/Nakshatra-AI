@@ -28,17 +28,20 @@ export default function ChatComponent() {
   const [loading, setLoading] = useState(false)
 
   const handleFormSubmit = async (data: any) => {
-    setFormSubmitted(true)
+  setFormSubmitted(true)
 
-    setMessages(prev => [
-      ...prev,
-      {
-        id: Date.now().toString(),
-        sender: "user",
-        content: "We have recieved your Birth Details . For privacy purposes we are not saving it anywhere ✅",
-      },
-    ])
-    //Handles the form submission and sends data to the backend
+  setMessages(prev => [
+    ...prev,
+    {
+      id: Date.now().toString(),
+      sender: "user",
+      content: "We have received your Birth Details. For privacy purposes, we are not saving it anywhere ✅",
+    },
+  ])
+
+  setLoading(true) ;
+
+  try {
     const res = await fetch("/api/kundli", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -47,12 +50,11 @@ export default function ChatComponent() {
 
     let raw = await res.text()
 
-    // If the response is a JSON array of string (e.g., ["text with \n newlines"])
     try {
       const parsed = JSON.parse(raw)
       if (Array.isArray(parsed)) raw = parsed.join("\n")
     } catch (e) {
-      console.log(e);
+      console.log(e)
     }
 
     setMessages(prev => [
@@ -63,7 +65,20 @@ export default function ChatComponent() {
         content: raw,
       },
     ])
+  } catch (e) {
+    setMessages(prev => [
+      ...prev,
+      {
+        id: (Date.now() + 1).toString(),
+        sender: "ai",
+        content: "⚠️ Error fetching Kundli details. Please try again later.",
+      },
+    ])
+  } finally {
+    setLoading(false) 
   }
+}
+
 
   const scrollToBottom = () => {
     const container = scrollAreaRef.current?.querySelector(
