@@ -25,8 +25,9 @@ export default function ChatComponent() {
   const [inputMessage, setInputMessage] = useState("")
   const scrollAreaRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const [loading, setLoading] = useState(false)
 
-  const handleFormSubmit = async (data : any) => {
+  const handleFormSubmit = async (data: any) => {
     setFormSubmitted(true)
 
     setMessages(prev => [
@@ -88,33 +89,53 @@ export default function ChatComponent() {
       setMessages(prev => [...prev, userMsg])
 
       setInputMessage("")
+      setLoading(true)
 
-      // setTimeout(() => {
-      //   const aiMsg: Message = {
-      //     id: (Date.now() + 1).toString(),
-      //     content:
-      //       "Thank you for your question.\n\nHere's a sample AI markdown response:\n\n**Planet Positions**:\n- Sun: Leo ♌️\n- Moon: Taurus ♉️\n\n```js\nconst karma = 'your destiny';\n```\n\n> Trust the universe 🌌",
-      //     sender: "ai",
-      //   }
-      //   setMessages(prev => [...prev, aiMsg])
-      // }, 1000)
-      // Send to backend
-      console.log("Sending message to backend:", newMessage);
-      const res = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query: newMessage }),
-      })
+      try {
+        const controller = new AbortController()
+        const timeout = setTimeout(() => controller.abort(), 30000)
 
-      const result = await res.json()
-      setMessages(prev => [
-        ...prev,
-        {
-          id: (Date.now() + 1).toString(),
-          sender: "ai",
-          content: result.response, // instead of raw
-        },
-      ])
+        const res = await Promise.race([
+          fetch("/api/chat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ query: newMessage }),
+            signal: controller.signal,
+          }),
+          new Promise<null>((_, reject) =>
+            setTimeout(() => reject(new Error("timeout")), 30000)
+          ),
+        ])
+
+        clearTimeout(timeout)
+
+        if (!res || !(res as Response).ok) {
+          throw new Error("Server error or timeout.")
+        }
+
+        const result = await (res as Response).json()
+
+        setMessages(prev => [
+          ...prev,
+          {
+            id: (Date.now() + 1).toString(),
+            sender: "ai",
+            content: result.response,
+          },
+        ])
+      } catch (error) {
+        setMessages(prev => [
+          ...prev,
+          {
+            id: (Date.now() + 1).toString(),
+            sender: "ai",
+            content:
+              "⚠️ Our servers are currently busy. Please try again after some time.",
+          },
+        ])
+      } finally {
+        setLoading(false)
+      }
     }
   }
 
@@ -155,8 +176,8 @@ export default function ChatComponent() {
                 >
                   <Card
                     className={`px-4 pt-2 pb-4 shadow-md ${msg.sender === "user"
-                        ? "bg-gray-800 text-white"
-                        : "bg-gray-900 border border-gray-700 text-white"
+                      ? "bg-gray-800 text-white"
+                      : "bg-gray-900 border border-gray-700 text-white"
                       }`}
                   >
                     {msg.sender === "ai" ? (
@@ -178,14 +199,14 @@ export default function ChatComponent() {
                   {/* Avatar */}
                   <div
                     className={`flex mt-2 ${msg.sender === "user"
-                        ? "justify-end"
-                        : "justify-start"
+                      ? "justify-end"
+                      : "justify-start"
                       }`}
                   >
                     <div
                       className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium ${msg.sender === "user"
-                          ? "bg-gradient-to-r from-black to-blue-400 text-white"
-                          : "bg-gradient-to-r from-gray-500 to-gray-1000 text-white"
+                        ? "bg-gradient-to-r from-black to-blue-400 text-white"
+                        : "bg-gradient-to-r from-gray-500 to-gray-1000 text-white"
                         }`}
                     >
                       {msg.sender === "user" ? "You" : "AI"}
@@ -194,6 +215,23 @@ export default function ChatComponent() {
                 </div>
               </div>
             ))}
+            {loading && (
+              <div className="flex justify-start">
+                <div className="max-w-[80%] sm:max-w-[70%]">
+                  <Card className="px-4 pt-2 pb-4 shadow-md bg-gray-900 border border-gray-700 text-white">
+                    <p className="text-sm leading-relaxed whitespace-pre-wrap italic text-gray-400">
+                      AI is typing<span className="animate-pulse">...</span>
+                    </p>
+                  </Card>
+                  <div className="flex mt-2 justify-start">
+                    <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium bg-gradient-to-r from-gray-500 to-gray-1000 text-white">
+                      AI
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
           </div>
         </ScrollArea>
       </div>
