@@ -164,7 +164,7 @@ export default function ChatComponent() {
   return (
     <div className="flex flex-col h-screen bg-black text-white overflow-hidden">
       {/* Header */}
-      <header className="bg-black/90 backdrop-blur-md border-b border-gray-700 shadow-sm">
+      <header className="bg-black/90 backdrop-blur-md border-b border-gray-700 shadow-sm mb-4">
         <div className="flex items-center justify-center py-4 px-6">
           <h1 className="text-2xl font-bold bg-gradient-to-r from-white to-blue-300 bg-clip-text text-transparent">
             ✦ N A K S H A T R A ✦
