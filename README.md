@@ -8,14 +8,14 @@ Nakshatra AI is an intelligent Vedic astrology chatbot that provides personalize
 
 ### Frontend
 
-* React
+* Next.js
 * Tailwind CSS
-* Axios
+* Rest API
 
 ### Backend
 
 * FastAPI (Python)
-* LangChain + ChatOpenAI
+* LangChain + Groq
 * LangChain Memory
 * Uvicorn
 
@@ -24,7 +24,7 @@ Nakshatra AI is an intelligent Vedic astrology chatbot that provides personalize
 ## 📅 Features
 
 * 🔍 Input your name, date/time/place of birth to generate your Kundali
-* 🧠 LangChain memory allows the chatbot to remember and refer to user details
+* 🧠 LangChain memory allows the chatbot to remember and refer to user details till the user converses .
 * 👥 Chat naturally with an AI astrologer for insights based on your astrological chart
 * 🚀 Deployable easily using platforms like Render or Vercel
 * ⏳ Frontend handles loading, API errors, and user feedback gracefully
