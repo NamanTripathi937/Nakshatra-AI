@@ -48,7 +48,7 @@ pip install -r requirements.txt
 uvicorn main:app --reload
 ```
 
-> Set your `OPENAI_API_KEY` as an environment variable in the backend.
+> Set your `GROQ_API_KEY` as an environment variable in the backend.
 
 ### 3. Frontend Setup
 
@@ -61,7 +61,7 @@ npm run dev
 > Add a `.env` file inside `frontend/`:
 
 ```env
-VITE_BACKEND_URL=http://localhost:8000
+NEXT_PUBLIC_BACKEND_URL=http://localhost:8000
 ```
 
 ---
@@ -74,14 +74,14 @@ VITE_BACKEND_URL=http://localhost:8000
 * Start command:
 
 ```bash
-uvicorn main:app --host 0.0.0.0 --port 10000
+uvicorn main:app --host 0.0.0.0 --port 8000
 ```
 
 ### Frontend
 
 * Host on Vercel or Render static site
 
-Ensure the `VITE_BACKEND_URL` is updated with the deployed backend URL.
+Ensure the `NEXT_PUBLIC_BACKEND` is updated with the deployed backend URL.
 
 ---
 
@@ -96,9 +96,9 @@ Ensure the `VITE_BACKEND_URL` is updated with the deployed backend URL.
 ## 🙏 Acknowledgements
 
 * LangChain
-* OpenAI
+* Groq
 * FastAPI
-* React
+* Next
 
 ---
 
