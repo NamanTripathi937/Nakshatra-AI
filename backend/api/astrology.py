@@ -40,9 +40,10 @@ headers = {
 }
 
 def get_kundli_data(payload):
+    # print("Fetching kundli details with payload:", payload)
     details = {}
-    print("Raw payload from frontend:", payload)
-    print("Types:", {k: type(v) for k, v in payload.items()})
+    # print("Raw payload from frontend:", payload)
+    # print("Types:", {k: type(v) for k, v in payload.items()})
     for key, url in ENDPOINTS.items():
         response = requests.post(url, headers=headers, data=json.dumps(payload))
         if response.status_code == 200:
@@ -54,7 +55,7 @@ def get_kundli_data(payload):
                 "message": response.text
             }
 
-        # ✅ Respect rate limit: sleep 1.1 sec
+        #Respect rate limit: sleep 1.1 sec
         time.sleep(1.1)
     print("Kundli details fetched:", details)
     return details

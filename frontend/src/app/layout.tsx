@@ -25,8 +25,6 @@ export default function RootLayout({
   return (
     <html lang="en">
        <head>
-        {/* Google Analytics */}
-        <script async src="https://www.googletagmanager.com/gtag/js?id=G-XTH048GHDB"></script>
         <script
           dangerouslySetInnerHTML={{
             __html: `

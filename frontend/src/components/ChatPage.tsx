@@ -12,6 +12,9 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Send } from "lucide-react"
 import KundliForm from "./KundliForm"
 import type { KundliInput } from "../lib/types"
+import { GeoapifyGeocoderAutocomplete, GeoapifyContext } from '@geoapify/react-geocoder-autocomplete'
+import '@geoapify/geocoder-autocomplete/styles/minimal.css'
+
 
 interface Message {
   id: string
@@ -161,6 +164,9 @@ export default function ChatComponent() {
     }
   }
 
+
+  
+
   return (
     <div className="flex flex-col h-screen bg-black text-white overflow-hidden">
       {/* Header */}
@@ -252,7 +258,7 @@ export default function ChatComponent() {
       </div>
 
       {/* Message Input */}
-      <div className="bg-black/95 border-t border-gray-700">
+     {formSubmitted && <div className="bg-black/95 border-t border-gray-700">
         <div className="max-w-4xl mx-auto">
           <Card className="p-4 m-2 shadow-lg border-gray-600 bg-gray-900">
             <form
@@ -290,7 +296,7 @@ export default function ChatComponent() {
             </div>
           </Card>
         </div>
-      </div>
+      </div> }
     </div>
   )
 }

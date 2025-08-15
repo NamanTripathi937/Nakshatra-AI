@@ -7,7 +7,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { MapPin, Sparkles } from "lucide-react"
-
+import PlacesAutoComplete from "./ui/placesAutoComplete"
 export default function KundliForm({ onSubmit }: { onSubmit: (data: any) => void }) {
   const [formData, setFormData] = useState({
     year: "",
@@ -16,14 +16,22 @@ export default function KundliForm({ onSubmit }: { onSubmit: (data: any) => void
     hours: "",
     minutes: "",
     seconds: "",
-    latitude: "",
+    timezone: "5.5",
+    latitude:"",
     longitude: "",
-    timezone: "",
   })
+const handlePlaceSelect = (lat: number, lon: number) => {
+  setFormData((prev) => ({
+    ...prev,
+    latitude: lat.toString(),
+    longitude: lon.toString(),
+  }))
+}
+
 
 const handleSubmit = (e: React.FormEvent) => {
   e.preventDefault()
-
+  // console.log("Form submitted with data:", formData)
   const finalData = {
     year: parseInt(formData.year),
     month: parseInt(formData.month),
@@ -33,13 +41,13 @@ const handleSubmit = (e: React.FormEvent) => {
     seconds: parseInt(formData.seconds),
     latitude: parseFloat(formData.latitude),
     longitude: parseFloat(formData.longitude),
-    timezone: parseFloat(formData.timezone),
+    timezone: 5.5,
     settings: {
       observation_point: "topocentric",
       ayanamsha: "lahiri",
     },
   }
-
+  // console.log("Final data to submit:", finalData)
   onSubmit(finalData)
 }
 
@@ -124,63 +132,7 @@ const handleInputChange = (field: string, value: string) => {
                 </div>
                 <p className="text-xs text-gray-500">Use 24-hour format</p>
               </div>
-
-              {/* Latitude */}
-              <div className="space-y-1">
-                <Label htmlFor="latitude" className="text-xs font-medium text-gray-300">
-                  Latitude of Birth place
-                </Label>
-                <div className="relative">
-                  <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-purple-600" />
-                  <Input
-                    id="latitude"
-                    type="number"
-                    placeholder="Latitude"
-                    value={formData.latitude}
-                    onChange={(e) => handleInputChange("latitude", e.target.value)}
-                    className="h-9 pl-9 bg-black border-gray-600 text-gray-100 text-xs placeholder:text-gray-400 focus:border-purple-400 focus:ring-purple-400"
-                    required
-                  />
-                </div>
-              </div>
-
-              {/* Longitude */}
-              <div className="space-y-1">
-                <Label htmlFor="longitude" className="text-xs font-medium text-gray-300">
-                  Longitude of Birth place
-                </Label>
-                <div className="relative">
-                  <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-purple-600" />
-                  <Input
-                    id="longitude"
-                    type="number"
-                    placeholder="Longitude"
-                    value={formData.longitude}
-                    onChange={(e) => handleInputChange("longitude", e.target.value)}
-                    className="h-9 pl-9 bg-black border-gray-600 text-gray-100 text-xs placeholder:text-gray-400 focus:border-purple-400 focus:ring-purple-400"
-                    required
-                  />
-                </div>
-              </div>
-
-              {/* Timezone */}
-              <div className="space-y-1">
-                <Label htmlFor="timezone" className="text-xs font-medium text-gray-300">
-                  Timezone of Birth place
-                </Label>
-                <div className="relative">
-                  <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-purple-600" />
-                  <Input
-                    id="timezone"
-                    type="number"
-                    placeholder="Time Zone (5.5 for India)"
-                    value={formData.timezone}
-                    onChange={(e) => handleInputChange("timezone", e.target.value)}
-                    className="h-9 pl-9 bg-black border-gray-600 text-gray-100 text-xs placeholder:text-gray-400 focus:border-purple-400 focus:ring-purple-400"
-                    required
-                  />
-                </div>
-              </div>
+              <PlacesAutoComplete onPlaceSelect={handlePlaceSelect} />
 
               {/* Submit Button */}
               <Button
