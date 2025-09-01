@@ -151,6 +151,7 @@ export default function ChatComponent() {
               "⚠️ Our servers are currently busy. Please try again after some time.",
           },
         ])
+        console.error("Error sending message:", error)
       } finally {
         setLoading(false)
       }
