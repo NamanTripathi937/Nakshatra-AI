@@ -9,7 +9,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const data = req.body;
 
   try {
-    const response = await fetch('http://localhost:8000/kundli', {
+    const backendUrl = process.env.BACKEND_URL || 'http://localhost:8000';
+    console.log(backendUrl)
+    const response = await fetch(`${backendUrl}/kundli`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
