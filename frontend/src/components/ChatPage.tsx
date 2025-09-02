@@ -30,6 +30,11 @@ export default function ChatComponent() {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const [loading, setLoading] = useState(false)
 
+  useEffect(() => {
+    fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/ping`).catch(() => {})
+    console.log('Sent ping to backend')
+  }, [])
+
   const handleFormSubmit = async (data: any) => {
   setFormSubmitted(true)
 

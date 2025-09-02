@@ -19,6 +19,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.get("/ping")
+def ping():
+    print("Ping received!")
+    return {"status": "ok"}
 
 load_dotenv()
 api_key = os.getenv("GROQ_API_KEY")
