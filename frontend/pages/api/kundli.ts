@@ -17,16 +17,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       body: JSON.stringify(data),
     });
 
-    // const response = await fetch("http://localhost:8000/kundli", {
-    //   method: "POST",
-    //   headers: { "Content-Type": "application/json" },
-    //   body: JSON.stringify(data),
-    // });
-
     if (!response.ok) {
       const errorText = await response.text(); // Get raw error
       console.error(" Backend returned error:", errorText);
-      return res.status(500).json({ error: "Backend error: " + errorText });
+      return res.status(500).json({ error: " Hi ! Our servers are under maintainence break , Please Try again shortly  " });
     }
 
     const kundli = await response.json();

@@ -8,6 +8,7 @@ from api.astrology import get_kundli_data
 from langchain.chains import ConversationChain
 from langchain.memory import ConversationBufferMemory
 from fastapi.responses import JSONResponse
+from datetime import datetime
 
 app = FastAPI()
 app.add_middleware(
@@ -35,7 +36,7 @@ conversation = ConversationChain(
     memory=memory,
     verbose=True
 )
-
+today = datetime.now().strftime("%Y-%m-%d")
 @app.post("/kundli")
 async def kundli(request: Request):
     data = await request.json()
@@ -56,7 +57,7 @@ async def kundli(request: Request):
     You are an expert astrologer analyzing a kundli. Follow these rules STRICTLY:
     1. NEVER show your reasoning process
     2. ONLY provide the final analysis
-
+    Today is {today}
     Kundli Data:
     {kundli_data}
     """
