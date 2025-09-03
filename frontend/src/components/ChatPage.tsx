@@ -4,6 +4,7 @@ import React, { useState, useRef, useEffect } from "react"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import rehypeHighlight from "rehype-highlight"
+import rehypeRaw from "rehype-raw"
 
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
@@ -14,6 +15,7 @@ import KundliForm from "./KundliForm"
 import type { KundliInput } from "../lib/types"
 import { GeoapifyGeocoderAutocomplete, GeoapifyContext } from '@geoapify/react-geocoder-autocomplete'
 import '@geoapify/geocoder-autocomplete/styles/minimal.css'
+import AIMessage from './AImessage'
 
 
 interface Message {
@@ -31,61 +33,61 @@ export default function ChatComponent() {
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
-    fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/ping`).catch(() => {})
+    fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/ping`).catch(() => { })
     console.log('Sent ping to backend')
   }, [])
 
   const handleFormSubmit = async (data: any) => {
-  setFormSubmitted(true)
+    setFormSubmitted(true)
 
-  setMessages(prev => [
-    ...prev,
-    {
-      id: Date.now().toString(),
-      sender: "user",
-      content: "We have received your Birth Details. For privacy purposes, we are not saving it anywhere ✅",
-    },
-  ])
+    setMessages(prev => [
+      ...prev,
+      {
+        id: Date.now().toString(),
+        sender: "user",
+        content: "We have received your Birth Details. For privacy purposes, we are not saving it anywhere ✅",
+      },
+    ])
 
-  setLoading(true) ;
-
-  try {
-    const res = await fetch("/api/kundli", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
-    })
-
-    let raw = await res.text()
+    setLoading(true);
 
     try {
-      const parsed = JSON.parse(raw)
-      if (Array.isArray(parsed)) raw = parsed.join("\n")
-    } catch (e) {
-      console.log(e)
-    }
+      const res = await fetch("/api/kundli", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      })
 
-    setMessages(prev => [
-      ...prev,
-      {
-        id: (Date.now() + 1).toString(),
-        sender: "ai",
-        content: raw,
-      },
-    ])
-  } catch (e) {
-    setMessages(prev => [
-      ...prev,
-      {
-        id: (Date.now() + 1).toString(),
-        sender: "ai",
-        content: "⚠️ Error fetching Kundli details. Please try again later.",
-      },
-    ])
-  } finally {
-    setLoading(false) 
+      let raw = await res.text()
+
+      try {
+        const parsed = JSON.parse(raw)
+        if (Array.isArray(parsed)) raw = parsed.join("\n")
+      } catch (e) {
+        console.log(e)
+      }
+
+      setMessages(prev => [
+        ...prev,
+        {
+          id: (Date.now() + 1).toString(),
+          sender: "ai",
+          content: raw,
+        },
+      ])
+    } catch (e) {
+      setMessages(prev => [
+        ...prev,
+        {
+          id: (Date.now() + 1).toString(),
+          sender: "ai",
+          content: "⚠️ Error fetching Kundli details. Please try again later.",
+        },
+      ])
+    } finally {
+      setLoading(false)
+    }
   }
-}
 
 
   const scrollToBottom = () => {
@@ -171,8 +173,6 @@ export default function ChatComponent() {
   }
 
 
-  
-
   return (
     <div className="flex flex-col h-screen bg-black text-white overflow-hidden">
       {/* Header */}
@@ -208,14 +208,7 @@ export default function ChatComponent() {
                       }`}
                   >
                     {msg.sender === "ai" ? (
-                      <div className="prose prose-invert text-sm leading-relaxed whitespace-pre-wrap max-w-none">
-                        <ReactMarkdown
-                          remarkPlugins={[remarkGfm]}
-                          rehypePlugins={[rehypeHighlight]}
-                        >
-                          {msg.content}
-                        </ReactMarkdown>
-                      </div>
+                      <AIMessage id={msg.id} content={msg.content} />
                     ) : (
                       <p className="text-sm leading-relaxed whitespace-pre-wrap">
                         {msg.content}
@@ -264,7 +257,7 @@ export default function ChatComponent() {
       </div>
 
       {/* Message Input */}
-     {formSubmitted && <div className="bg-black/95 border-t border-gray-700">
+      {formSubmitted && <div className="bg-black/95 border-t border-gray-700">
         <div className="max-w-4xl mx-auto">
           <Card className="p-4 m-2 shadow-lg border-gray-600 bg-gray-900">
             <form
@@ -302,7 +295,7 @@ export default function ChatComponent() {
             </div>
           </Card>
         </div>
-      </div> }
+      </div>}
     </div>
   )
 }
