@@ -27,10 +27,10 @@ api_key = os.getenv("free-api-key")
 
 ENDPOINTS = {
     "main_planets": "https://json.apiastro.com/planets/extended",
-    "navamsa": "https://json.freeastrologyapi.com/navamsa-chart-info",
-    "d3": "https://json.freeastrologyapi.com/d3-chart-info",
-    "d7": "https://json.freeastrologyapi.com/d7-chart-info",
-    "d10": "https://json.freeastrologyapi.com/d10-chart-info",
+    # "navamsa": "https://json.freeastrologyapi.com/navamsa-chart-info",
+    # "d3": "https://json.freeastrologyapi.com/d3-chart-info",
+    # "d7": "https://json.freeastrologyapi.com/d7-chart-info",
+    # "d10": "https://json.freeastrologyapi.com/d10-chart-info",
     "Vimsottari Maha Dasas and Antar Dasas" : "https://json.freeastrologyapi.com/vimsottari/maha-dasas-and-antar-dasas"
 }
 
@@ -40,10 +40,7 @@ headers = {
 }
 
 def get_kundli_data(payload):
-    # print("Fetching kundli details with payload:", payload)
     details = {}
-    # print("Raw payload from frontend:", payload)
-    # print("Types:", {k: type(v) for k, v in payload.items()})
     for key, url in ENDPOINTS.items():
         response = requests.post(url, headers=headers, data=json.dumps(payload))
         if response.status_code == 200:
