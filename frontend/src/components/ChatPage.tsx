@@ -10,6 +10,7 @@ import { Send } from "lucide-react"
 import KundliForm from "./KundliForm"
 import '@geoapify/geocoder-autocomplete/styles/minimal.css'
 import AIMessage from './AImessage'
+import {getOrCreateSessionId} from "@/lib/utils"
 
 
 interface Message {
@@ -48,7 +49,7 @@ export default function ChatComponent() {
     try {
       const res = await fetch("/api/kundli", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json","X-Session-Id":session_id  },
         body: JSON.stringify(data),
       })
 
@@ -97,6 +98,8 @@ export default function ChatComponent() {
 
   const newMessage = inputMessage.trim();
 
+  const session_id = getOrCreateSessionId();
+
   const handleSendMessage = async () => {
     if (newMessage) {
       const userMsg: Message = {
@@ -117,7 +120,7 @@ export default function ChatComponent() {
         const res = await Promise.race([
           fetch("/api/chat", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: { "Content-Type": "application/json","X-Session-Id":session_id },
             body: JSON.stringify({ query: newMessage }),
             signal: controller.signal,
           }),

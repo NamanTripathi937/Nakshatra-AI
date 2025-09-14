@@ -9,11 +9,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const data = req.body;
 
   try {
+    const sessionId = req.headers["x-session-id"] as string ;
     const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
     // console.log(backendUrl)
     const response = await fetch(`${backendUrl}/kundli`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "X-Session-Id": sessionId },
       body: JSON.stringify(data),
     });
 

@@ -12,10 +12,14 @@ if (!query || typeof query !== 'string') {
 }
 
   try {
+  const sessionId = req.headers["x-session-id"] as string ;
   const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
   const response = await fetch(`${backendUrl}/chat`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { 
+      "Content-Type": "application/json",
+       "X-Session-Id": sessionId
+    },
     body:  JSON.stringify({ query }),  
   });
 
