@@ -161,14 +161,14 @@ def calc_vimshottari_dasha(jd_ut):
 
 # --------------- Main generator ---------------
 def generate_chart(birth, house_system='P'):
-    required = ["year","month","day","hour","minute","second","timezone","latitude","longitude"]
+    required = ["year","month","date","hours","minutes","seconds","timezone","latitude","longitude"]
     for k in required:
         if k not in birth:
             raise ValueError(f"Missing {k}")
 
     tz = pytz.timezone(birth["timezone"])
-    local_dt = datetime(birth["year"], birth["month"], birth["day"],
-                        birth["hour"], birth["minute"], birth["second"])
+    local_dt = datetime(birth["year"], birth["month"], birth["date"],
+                        birth["hours"], birth["minutes"], birth["seconds"])
     local_dt = tz.localize(local_dt)
     utc_dt = local_dt.astimezone(pytz.utc)
     frac_hour = utc_dt.hour + utc_dt.minute/60.0 + utc_dt.second/3600.0 + utc_dt.microsecond/3600.0/1e6
@@ -226,6 +226,7 @@ def generate_chart(birth, house_system='P'):
             planets_out.append({"name": pname, "error": str(e)})
 
     maha, anta = calc_vimshottari_dasha(jd_ut_local)
+    print("Current dasha", maha, anta)
 
     out = {
         "input": {
@@ -244,17 +245,18 @@ def generate_chart(birth, house_system='P'):
         "house_cusps_deg": build_house_cusps_dict(cusps_used),
         "planets": planets_out,
         "current_dasha": {"mahadasha": maha, "antardasha": anta},
-        "notes": f"House system: {'Whole-Sign' if str(house_system).upper().startswith('W') else 'Placidus'} | Sidereal (Lahiri)"
+        # "notes": f"House system: {'Whole-Sign' if str(house_system).upper().startswith('W') else 'Placidus'} | Sidereal (Lahiri)"
     }
+    print("Generated chart data",out)
     return json.dumps(out, indent=2)
 
 
 # --------------- Demo ----------------
-if __name__ == "__main__":
-    sample = {
-        "year": 2001, "month": 8, "day": 14,
-        "hour": 2, "minute": 30, "second": 0,
-        "timezone": "Asia/Kolkata",
-        "latitude": 24.5362, "longitude": 81.29911, "altitude_m": 216
-    }
-    print(generate_chart(sample, house_system="WS"))
+# if __name__ == "__main__":
+#     sample = {
+#         "year": 2003, "month": 5, "day": 7,
+#         "hour": 23, "minute": 30, "second": 0,
+#         "timezone": "Asia/Kolkata",
+#         "latitude": 25.3708, "longitude":86.4734, "altitude_m": 216
+#     }
+#     print(generate_chart(sample, house_system="WS"))

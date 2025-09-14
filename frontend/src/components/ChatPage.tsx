@@ -1,10 +1,6 @@
 "use client"
 
 import React, { useState, useRef, useEffect } from "react"
-import ReactMarkdown from "react-markdown"
-import remarkGfm from "remark-gfm"
-import rehypeHighlight from "rehype-highlight"
-import rehypeRaw from "rehype-raw"
 
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
@@ -12,8 +8,6 @@ import { Textarea } from "@/components/ui/textarea"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Send } from "lucide-react"
 import KundliForm from "./KundliForm"
-import type { KundliInput } from "../lib/types"
-import { GeoapifyGeocoderAutocomplete, GeoapifyContext } from '@geoapify/react-geocoder-autocomplete'
 import '@geoapify/geocoder-autocomplete/styles/minimal.css'
 import AIMessage from './AImessage'
 

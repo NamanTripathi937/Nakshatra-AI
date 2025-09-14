@@ -16,7 +16,7 @@ export default function KundliForm({ onSubmit }: { onSubmit: (data: any) => void
     hours: "",
     minutes: "",
     seconds: "",
-    timezone: "5.5",
+    timezone: "Asia/Kolkata",
     latitude:"",
     longitude: "",
   })
@@ -41,7 +41,7 @@ const handleSubmit = (e: React.FormEvent) => {
     seconds: parseInt(formData.seconds),
     latitude: parseFloat(formData.latitude),
     longitude: parseFloat(formData.longitude),
-    timezone: 5.5,
+    timezone: "Asia/Kolkata", 
     settings: {
       observation_point: "topocentric",
       ayanamsha: "lahiri",

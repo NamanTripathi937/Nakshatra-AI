@@ -5,11 +5,13 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from api.astrology import get_kundli_data
+from astro.astro import generate_chart
 from langchain.chains import ConversationChain
 from langchain.memory import ConversationBufferMemory
 from langchain.schema import SystemMessage
 from fastapi.responses import JSONResponse
 from datetime import datetime
+
 
 app = FastAPI()
 app.add_middleware(
@@ -34,7 +36,7 @@ llm = ChatGroq(
     api_key=api_key
 )
 
-memory = ConversationBufferMemory(return_messages=True)
+memory = ConversationBufferMemory(llm = llm,return_messages=True)
 
 conversation = ConversationChain(
     llm=llm,
@@ -43,34 +45,36 @@ conversation = ConversationChain(
 )
 
 # Find current maha/antar dasha
-def get_current_dasha(dasha_data: dict, today: datetime):
-    try:
-        for maha, antars in dasha_data.items():
-            for antar, period in antars.items():
-                try:
-                    start = datetime.fromisoformat(period.get("start_time", ""))
-                    end = datetime.fromisoformat(period.get("end_time", ""))
-                except (ValueError, TypeError):
-                    # Skip if invalid date format
-                    continue
+# def get_current_dasha(dasha_data: dict, today: datetime):
+#     try:
+#         for maha, antars in dasha_data.items():
+#             for antar, period in antars.items():
+#                 try:
+#                     start = datetime.fromisoformat(period.get("start_time", ""))
+#                     end = datetime.fromisoformat(period.get("end_time", ""))
+#                 except (ValueError, TypeError):
+#                     # Skip if invalid date format
+#                     continue
 
-                if start <= today <= end:
-                    return maha, antar
-    except Exception as e:
-        # Log or print error for debugging
-        print(f"Error in get_current_dasha: {e}")
+#                 if start <= today <= end:
+#                     return maha, antar
+#     except Exception as e:
+#         # Log or print error for debugging
+#         print(f"Error in get_current_dasha: {e}")
 
-    return None, None
+#     return None, None
 
+kundli_data = None
 
 @app.post("/kundli")
 async def kundli(request: Request):
     data = await request.json()
-    kundli_data = get_kundli_data(data)
+    # kundli_data = get_kundli_data(data)
+    kundli_data= generate_chart(data, house_system="WS")
 
     # Parse dasha data safely
-    dasha_json_str = kundli_data["Vimsottari Maha Dasas and Antar Dasas"]["output"]
-    dasha_data = json.loads(dasha_json_str)
+    # dasha_json_str = kundli_data["Vimsottari Maha Dasas and Antar Dasas"]["output"]
+    # dasha_data = json.loads(dasha_json_str)
 
     today_dt = datetime.now()
 
@@ -81,7 +85,7 @@ async def kundli(request: Request):
     memory.chat_memory.add_user_message("My birth details")
     memory.chat_memory.add_message(SystemMessage(content=intro))
 
-    current_mahadasha, current_antardasha = get_current_dasha(dasha_data, today_dt)
+    # current_mahadasha, current_antardasha = get_current_dasha(dasha_data, today_dt)
     # ✅ Clean prompt for LLM
     prompt = f"""
     You are an expert astrologer with full access to the user's Kundli data 
@@ -108,19 +112,32 @@ async def kundli(request: Request):
 
     ### Today’s Context
     Date: {today_dt.strftime('%Y-%m-%d')}
-    Current Mahadasha: {current_mahadasha}
-    Current Antardasha: {current_antardasha}
     """
     response = llm.invoke(prompt)
     return {response.content.strip()}
 
 @app.post("/chat")
 async def chat(request: Request):
+    global kundli_data  
+    
     data = await request.json()
     print("Received data in /chat:", data)
 
-    response = conversation.predict(input=data["query"])
+    # Append kundli_data if available
+    if kundli_data:
+        query_with_kundli = f"""
+        User Query: {data['query']}
+
+        ### Reference Kundli Data
+        {json.dumps(kundli_data, indent=2)}
+        """
+    else:
+        query_with_kundli = data["query"]
+
+    # Pass to conversation chain
+    response = conversation.predict(input=query_with_kundli)
 
     return JSONResponse(content={"response": response.strip()})
+
 # uvicorn main:app --host 0.0.0.0 --port 8000 --reload    
 # .\venv\Scripts\Activate.ps1  
