@@ -1,4 +1,3 @@
-# main.py
 import os
 import json
 import logging
@@ -68,22 +67,29 @@ def get_kundli(session_id: str) -> Optional[Dict[str, Any]]:
 
 
 def create_chain_for_session(session_id: str) -> ConversationChain:
-    """
-    Create a new ConversationChain with its own memory for a session.
-    """
-    memory = ConversationBufferMemory(llm=llm, return_messages=True)
+    memory = ConversationBufferMemory(llm=llm, return_messages=True, max_token_limit=800)
     chain = ConversationChain(llm=llm, memory=memory, verbose=False)
+    logger.info("create_chain_for_session: created chain id=%s for session_id=%s", id(chain), session_id)
     return chain
-
 
 def get_or_create_chain(session_id: str) -> ConversationChain:
     with _chain_lock:
+        logger.info("LOOKUP: session_id=%r keys=%s pid=%s", session_id, list(_chain_store.keys()), os.getpid())
         chain = _chain_store.get(session_id)
         if chain is None:
             chain = create_chain_for_session(session_id)
             _chain_store[session_id] = chain
-            logger.info("Created new conversation chain for session: %s", session_id)
+            logger.info("STORE: stored chain for session_id=%r (keys now=%s) pid=%s", session_id, list(_chain_store.keys()), os.getpid())
+        else:
+            logger.info("REUSE: reusing chain id=%s for session_id=%r pid=%s", id(chain), session_id, os.getpid())
         return chain
+
+# To lot the metadata of each request for debugging
+# @app.middleware("http")
+# async def log_headers(request: Request, call_next):
+#     sid = request.headers.get("x-session-id")
+#     logger.info("REQ path=%s pid=%s X-Session-Id=%s", request.url.path, os.getpid(), sid)
+#     return await call_next(request)
 
 
 # ----- Helper to build the LLM prompt summary for kundli -----
@@ -92,12 +98,15 @@ def build_kundli_prompt(kundli: Dict[str, Any], today: datetime) -> str:
         "You are an expert astrologer with full access to the user's Kundli data "
         "(including planetary placements and Vimsottari Dasha timeline).\n\n"
         "### Core Rules\n"
-        "1. NEVER ask the user for birth details (they are already included).\n"
+        "1. NEVER ask the user for birth details (they are already included) Output in clean Markdown;.\n"
         "2. DO NOT recalculate Mahadasha or Antardasha. Use the given data only.\n"
         "3. For personality/tendencies use planetary placements; for time-based queries use dashas.\n"
-        "4. Responses must be concise and highlight only major insights.\n"
-        "5. Output in clean Markdown; bullet points for summaries; tables only if requested.\n"
-        "6. Word limit: Max 150 words.\n\n"
+        "4. RESPOND VERY CONCISELY and only include major insights.\n"
+        "5. OUTPUT FORMAT (MUST follow exactly):\n"
+        "   - First line: single-sentence summary (<= 30 words).\n"
+        "   - Then up to 5 bullet points (each <= 15 words).\n"
+        "   - No extra explanation, no tables, no questions back to the user.\n"
+        "6. Absolute max length: 80 words.\n\n"
     )
 
     prompt = f"""{core_rules}
@@ -110,6 +119,11 @@ Date: {today.strftime('%Y-%m-%d')}
     return prompt
 
 
+
+def prune_memory_keep_last(chain: ConversationChain, keep_last_pairs: int = 1):
+    msgs = chain.memory.chat_memory.messages
+    if msgs:
+        chain.memory.chat_memory.messages = msgs[-(keep_last_pairs*2):]  # last user+assistant
 # ----- Endpoints -----
 
 
@@ -120,9 +134,14 @@ async def kundli(request: Request):
     Expects a JSON body with the birth details required by generate_chart.
     Session id is read from header 'X-Session-Id' (fallback to 'default').
     """
-    session_id = request.headers.get("x-session-id", "default")
+    session_id = request.headers.get("x-session-id")
+    if not session_id:
+        logger.warning("Missing X-Session-Id header")
+        raise HTTPException(status_code=400, detail="Missing X-Session-Id header")
+    
     try:
         payload = await request.json()
+        print("This is the payload",payload)
     except Exception:
         logger.exception("Invalid JSON in /kundli")
         raise HTTPException(status_code=400, detail="Invalid JSON payload")
@@ -193,11 +212,11 @@ async def chat(request: Request):
         # Attach kundli JSON as compact string to control token usage
         kundli_str = json.dumps(kundli)
         final_input = (
-            f"User Query: {user_query}\n\n### Reference Kundli Data (do not recalculate):\n{kundli_str}"
+            f"User Query: {user_query}\n\n### Answer very concisely without tables; Reference Kundli Data:\n{kundli_str}"
         )
     else:
         final_input = user_query
-
+    prune_memory_keep_last(chain, keep_last_pairs=1)
     # run the conversation chain
     try:
         # Note: ConversationChain.predict may be synchronous depending on LangChain adapter
@@ -207,6 +226,11 @@ async def chat(request: Request):
         raise HTTPException(status_code=500, detail="LLM conversation failed")
 
     return JSONResponse(content={"response": resp_text})
+
+# Only for local testing; use uvicorn command line in production
+# if __name__ == "__main__":
+#     import uvicorn
+#     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=False)
 
 # uvicorn main:app --host 0.0.0.0 --port 8000 --reload    
 # .\venv\Scripts\Activate.ps1  

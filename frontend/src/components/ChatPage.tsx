@@ -152,7 +152,7 @@ export default function ChatComponent() {
             id: (Date.now() + 1).toString(),
             sender: "ai",
             content:
-              "⚠️ Our servers are currently busy. Please try again after some time.",
+              "🚀 All out of free stars! You have asked all the free questions we can handle. But do not worry — just refresh + re-enter your details to keep the conversation going 🔮 ",
           },
         ])
         console.error("Error sending message:", error)
