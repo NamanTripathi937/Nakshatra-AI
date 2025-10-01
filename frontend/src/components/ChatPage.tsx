@@ -8,7 +8,6 @@ import { Textarea } from "@/components/ui/textarea"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Send } from "lucide-react"
 import KundliForm from "./KundliForm"
-import '@geoapify/geocoder-autocomplete/styles/minimal.css'
 import AIMessage from './AImessage'
 import {getOrCreateSessionId} from "@/lib/utils"
 

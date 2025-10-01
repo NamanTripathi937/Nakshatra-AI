@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+@import "@geoapify/geocoder-autocomplete/styles/minimal.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -241,7 +242,7 @@ body::before {
   z-index: 0;                /* sits above wallpaper (which is -1 / -2) but below content (z-10) */
   pointer-events: none;      /* don't block clicks */
   display: block;
-  margin-top: 2rem;  /* adjust as needed to position vertically */
+  margin-top: 4rem;  /* adjust as needed to position vertically */
 
   /* image + sizing */
   background-image: url('/zodiac.png');

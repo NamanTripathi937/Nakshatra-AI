@@ -228,9 +228,9 @@ async def chat(request: Request):
     return JSONResponse(content={"response": resp_text})
 
 # Only for local testing; use uvicorn command line in production
-# if __name__ == "__main__":
-#     import uvicorn
-#     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=False)
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=False)
 
 # uvicorn main:app --host 0.0.0.0 --port 8000 --reload    
 # .\venv\Scripts\Activate.ps1  
