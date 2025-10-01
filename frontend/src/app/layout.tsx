@@ -37,11 +37,17 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+        {/* root relative container so absolute mid-layer can be positioned */}
+        <div className="relative min-h-screen">
+          {/* mid-layer: sits behind content */}
+          <div className="mid-layer overflow-visible relative select-none" aria-hidden="true" />
 
-      >
-        {children}
+          {/* site content should be above mid-layer */}
+          <div className="relative z-10">
+            {children}
+          </div>
+        </div>
       </body>
     </html>
   );

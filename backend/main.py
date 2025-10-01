@@ -212,7 +212,7 @@ async def chat(request: Request):
         # Attach kundli JSON as compact string to control token usage
         kundli_str = json.dumps(kundli)
         final_input = (
-            f"User Query: {user_query}\n\n### Answer very concisely without tables; Reference Kundli Data:\n{kundli_str}"
+            f"User Query: {user_query}\n\n### Answer very concisely in points without tables; Reference Kundli Data:\n{kundli_str}"
         )
     else:
         final_input = user_query

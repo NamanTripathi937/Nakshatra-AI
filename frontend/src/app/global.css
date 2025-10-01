@@ -203,3 +203,73 @@
     @apply bg-background text-foreground;
   }
 }
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+/* reset + solid background so OS/window chrome can't show through */
+html, body, #__next {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+/* blurred background image — extend beyond viewport to avoid clipped halo */
+body::before {
+  content: "";
+  position: fixed;
+  /* extend beyond viewport so blur doesn't get clipped at the edge */
+  inset: -32px;
+  background-image: url('/stars.jpg') !important;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  z-index: -1;
+  pointer-events: none;
+  filter: blur(0.5rem); /* keep or reduce */
+  will-change: transform;
+}
+
+
+/* Mid-layer: image between wallpaper and content */
+.mid-layer {
+  position: fixed;
+  inset: 0;                  /* fill the viewport */
+  z-index: 0;                /* sits above wallpaper (which is -1 / -2) but below content (z-10) */
+  pointer-events: none;      /* don't block clicks */
+  display: block;
+  margin-top: 2rem;  /* adjust as needed to position vertically */
+
+  /* image + sizing */
+  background-image: url('/zodiac.png');
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 54%; 
+
+  /* visual tweaks */
+  opacity: .5;            /* adjust darkness / visibility */
+  mix-blend-mode: screen;  /* optional: try overlay, screen, multiply for different effects */
+  will-change: transform;
+
+  /* animation (rotation) - GPU-friendly transform */
+  transform-origin: 50% 50%;
+  animation: slow-rotate 60s linear infinite;
+}
+
+/* slow rotate keyframes */
+@keyframes slow-rotate {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+/* Respect users who prefer reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .mid-layer {
+    animation: none;
+  }
+}
+
+

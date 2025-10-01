@@ -55,7 +55,7 @@ const handleInputChange = (field: string, value: string) => {
   setFormData((prev) => ({ ...prev, [field]: value }))
 }
   return (
-    <div className="flex items-center justify-center">
+    <div className="flex items-center justify-center bg-transparent">
       <div className="w-full max-w-sm sm:max-w-xs md:max-w-sm lg:max-w-md">
         <div className="text-center mb-2">
           <div className="flex items-center justify-center mb-3">
@@ -66,7 +66,7 @@ const handleInputChange = (field: string, value: string) => {
           </div>
         </div>
 
-        <Card className="shadow-xl border border-gray-700 bg-black/90 backdrop-blur-sm pb-2">
+        <Card className="shadow-xl border border-gray-700 bg-black/20 backdrop-blur-md pb-2">
           <CardContent className="pb-2">
             <form onSubmit={handleSubmit} className="space-y-3">
 

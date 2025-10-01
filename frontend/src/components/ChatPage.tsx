@@ -171,18 +171,21 @@ export default function ChatComponent() {
 
 
   return (
-    <div className="flex flex-col h-screen bg-black text-white overflow-hidden">
+    <div className="flex flex-col h-screen text-white overflow-hidden ">
       {/* Header */}
-      <header className="bg-black/90 backdrop-blur-md border-b border-gray-700 shadow-sm mb-4">
+      <header className=" backdrop-blur-md border-b border-gray-700 shadow-sm mb-4  bg-black/20 scroll-none">
         <div className="flex items-center justify-center py-4 px-6">
           <h1 className="text-2xl font-bold bg-gradient-to-r from-white to-blue-300 bg-clip-text text-transparent">
             ✦ N A K S H A T R A ✦
           </h1>
         </div>
       </header>
+    {!formSubmitted && (
+      <div className="flex flex-1 items-center justify-center px-4 mt-35">
+        <KundliForm onSubmit={handleFormSubmit} />
+      </div>
+    )}
 
-      {/* Kundli Form */}
-      {!formSubmitted && <KundliForm onSubmit={handleFormSubmit} />}
 
       {/* Chat Messages */}
       <div className="flex-1 overflow-hidden mt-2 mb-1 pb-1">
@@ -254,9 +257,9 @@ export default function ChatComponent() {
       </div>
 
       {/* Message Input */}
-      {formSubmitted && <div className="bg-black/95 border-t border-gray-700">
+      {formSubmitted && <div className="bg-transparent ">
         <div className="max-w-4xl mx-auto">
-          <Card className="p-4 m-2 shadow-lg border-gray-600 bg-gray-900">
+          <Card className="p-4 m-2 shadow-lg border-gray-600 bg-transparent">
             <form
               className="flex space-x-3 items-center"
               onSubmit={(e) => {
