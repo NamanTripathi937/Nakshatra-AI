@@ -1,7 +1,8 @@
+// app/layout.tsx
 import type { Metadata } from "next";
+import Script from "next/script";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./global.css";
-import { useEffect } from "react";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -25,18 +26,23 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-       <head>
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              window.dataLayer = window.dataLayer || [];
-              function gtag(){dataLayer.push(arguments);}
-              gtag('js', new Date());
-              gtag('config', 'G-XTH048GHDB');
-            `,
-          }}
+      <head>
+        {/* Load gtag.js (GA4) */}
+        <Script
+          src="https://www.googletagmanager.com/gtag/js?id=G-XTH048GHDB"
+          strategy="afterInteractive"
         />
+        {/* Initialize gtag */}
+        <Script id="gtag-init" strategy="afterInteractive">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', 'G-XTH048GHDB');
+          `}
+        </Script>
       </head>
+
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         {/* root relative container so absolute mid-layer can be positioned */}
         <div className="relative min-h-screen">
@@ -44,9 +50,7 @@ export default function RootLayout({
           <div className="mid-layer overflow-visible relative select-none" aria-hidden="true" />
 
           {/* site content should be above mid-layer */}
-          <div className="relative z-10">
-            {children}
-          </div>
+          <div className="relative z-10">{children}</div>
         </div>
       </body>
     </html>
