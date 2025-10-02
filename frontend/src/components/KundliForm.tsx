@@ -20,7 +20,11 @@ export default function KundliForm({ onSubmit }: { onSubmit: (data: any) => void
     latitude:"",
     longitude: "",
   })
+  const [placeSelected,setPlaceSelected] = useState(false)
+  const [viewPlaceSelectError,setViewPlaceSelectError] = useState(false)
 const handlePlaceSelect = (lat: number, lon: number) => {
+  setPlaceSelected(true)
+  setViewPlaceSelectError(false)
   setFormData((prev) => ({
     ...prev,
     latitude: lat.toString(),
@@ -31,8 +35,11 @@ const handlePlaceSelect = (lat: number, lon: number) => {
 
 const handleSubmit = (e: React.FormEvent) => {
   e.preventDefault()
-  // console.log("Form submitted with data:", formData)
-  const finalData = {
+  if(!placeSelected){
+    setViewPlaceSelectError(true)
+    return
+  }else{
+    const finalData = {
     year: parseInt(formData.year),
     month: parseInt(formData.month),
     date: parseInt(formData.date),
@@ -47,8 +54,8 @@ const handleSubmit = (e: React.FormEvent) => {
       ayanamsha: "lahiri",
     },
   }
-  // console.log("Final data to submit:", finalData)
   onSubmit(finalData)
+  }
 }
 
 const handleInputChange = (field: string, value: string) => {
@@ -133,6 +140,7 @@ const handleInputChange = (field: string, value: string) => {
                 <p className="text-xs text-gray-500">Use 24-hour format</p>
               </div>
               <PlacesAutoComplete onPlaceSelect={handlePlaceSelect} />
+              {viewPlaceSelectError && <p className="text-xs text-red-500">Please select a location from the dropdown.</p>}
 
               {/* Submit Button */}
               <Button
