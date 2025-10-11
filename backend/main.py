@@ -30,7 +30,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "https://nakshatra-ai.vercel.app",  # deployed frontend
-        "http://localhost:3000",            # for local dev convenience
+       # "http://localhost:3000",            # for local dev convenience
     ],
     allow_credentials=True,                 
     allow_methods=["*"],                    
