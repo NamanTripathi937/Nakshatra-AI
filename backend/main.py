@@ -15,7 +15,7 @@ from langchain.chains import ConversationChain
 from langchain.memory import ConversationBufferMemory
 from langchain.schema import SystemMessage
 
-from api.astrology import get_kundli_data
+# from api.astrology import get_kundli_data // Can use freeastrologyapi.com to get kundli data
 from astro.astro import generate_chart
 
 # ----- Logging -----
@@ -24,12 +24,17 @@ logger = logging.getLogger("nakshatra-backend")
 
 # ----- App -----
 app = FastAPI(title="Nakshatra AI Backend")
+
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # restrict in production
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=[
+        "https://nakshatra-ai.vercel.app",  # deployed frontend
+        "http://localhost:3000",            # for local dev convenience
+    ],
+    allow_credentials=True,                 
+    allow_methods=["*"],                    
+    allow_headers=["*"],                    
 )
 
 @app.get("/ping")
@@ -234,3 +239,6 @@ if __name__ == "__main__":
 
 # uvicorn main:app --host 0.0.0.0 --port 8000 --reload    
 # .\venv\Scripts\Activate.ps1  
+
+
+
