@@ -7,6 +7,6 @@ export default function robots(): MetadataRoute.Robots {
       userAgent: "*",
       allow: "/",
     },
-    sitemap: "https://nakshatra-ai.vercel.app/sitemap.xml",
+    sitemap: "https://nakshatra-ai.vercel.app/sitemap2.xml",
   };
 }
