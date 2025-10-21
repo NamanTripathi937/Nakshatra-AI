@@ -12,13 +12,13 @@ rapid_api_key = os.getenv("rapidapi-key")
 api_key = os.getenv("free-api-key")
 payload = {
     "year": 2003,
-    "month": 8,
-    "date": 14,
-    "hours": 2,
+    "month": 5,
+    "date": 7,
+    "hours": 23,
     "minutes": 30,
     "seconds": 0,
-    "latitude": 24.5362,
-    "longitude": 81.3037,
+    "latitude": 25.3708,
+    "longitude": 86.4734,
     "timezone": 5.5,
     "config": {
         "observation_point": "topocentric",
@@ -27,16 +27,16 @@ payload = {
 }
 
 ENDPOINTS = {
-    # "main_planets": "https://json.apiastro.com/planets/extended",
-    # "navamsa": "https://json.freeastrologyapi.com/navamsa-chart-info",
+    "main_planets": "https://json.apiastro.com/planets/extended",
+    "navamsa": "https://json.freeastrologyapi.com/navamsa-chart-info",
    "d2": "https://json.freeastrologyapi.com/d2-chart-info",
-#   "d3": "https://json.freeastrologyapi.com/d3-chart-info",
+  "d3": "https://json.freeastrologyapi.com/d3-chart-info",
   "d4": "https://json.freeastrologyapi.com/d4-chart-info",
   "d5": "https://json.freeastrologyapi.com/d5-chart-info",
   "d6": "https://json.freeastrologyapi.com/d6-chart-info",
-#   "d7": "https://json.freeastrologyapi.com/d7-chart-info",
+  "d7": "https://json.freeastrologyapi.com/d7-chart-info",
   "d8": "https://json.freeastrologyapi.com/d8-chart-info",
-#   "d10": "https://json.freeastrologyapi.com/d10-chart-info",
+  "d10": "https://json.freeastrologyapi.com/d10-chart-info",
   "d11": "https://json.freeastrologyapi.com/d11-chart-info",
   "d12": "https://json.freeastrologyapi.com/d12-chart-info",
   "d16": "https://json.freeastrologyapi.com/d16-chart-info",
