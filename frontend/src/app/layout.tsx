@@ -15,11 +15,56 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const BASE_URL = "https://nakshatra-ai.vercel.app";
+
 export const metadata: Metadata = {
-  title: "Nakshatra AI",
-  description: "Created by Naman Tripathi",
+  metadataBase: new URL(BASE_URL),
+  title: {
+    default: "Nakshatra AI",
+    template: "%s | Nakshatra AI",
+  },
+  description: "Nakshatra AI — An AI project by Naman Tripathi. Explore AI tools and demos built with Next.js on Vercel.",
+  keywords: [
+    "nakshatra ai",
+    "nakshtra-ai",
+    "nakshatra by naman",
+    "nakshatra-ai.vercel.app",
+    "Naman Tripathi",
+    "nakshatra",
+    "naman astrology"
+  ],
+  authors: [{ name: "Naman Tripathi", url: BASE_URL }],
+  creator: "Naman Tripathi",
+  robots: {
+    index: true,
+    follow: true,
+  },
   verification: {
-    google: "mWLuq6bpiQgQOOg1-GIC5HUqRgzsY-kZTtNskIOeRmA", 
+    google: "mWLuq6bpiQgQOOg1-GIC5HUqRgzsY-kZTtNskIOeRmA",
+  },
+  alternates: {
+    canonical: "/",
+  },
+  icons: {
+    icon: "/favicon.png",
+    apple: "/apple-touch-icon.png",
+  },
+  openGraph: {
+    title: "Nakshatra AI — Naman",
+    description:
+      "Nakshatra AI — An AI project by Naman Tripathi. Explore AI tools and demos built with Next.js on Vercel.",
+    url: BASE_URL,
+    siteName: "Nakshatra AI",
+    locale: "en_US",
+    type: "website",
+    // intentionally omitting images (no og.png)
+  },
+  twitter: {
+    card: "summary",
+    title: "Nakshatra AI — Naman",
+    description:
+      "Nakshatra AI — An AI project by Naman Tripathi. Explore AI tools and demos built with Next.js on Vercel.",
+    // intentionally omitting images
   },
 };
 
@@ -28,9 +73,35 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const structuredData = {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    url: BASE_URL,
+    name: "Nakshatra AI",
+    author: {
+      "@type": "Person",
+      name: "Naman Tripathi",
+      url: BASE_URL,
+    },
+    potentialAction: {
+      "@type": "SearchAction",
+      target: `${BASE_URL}/?s={search_term_string}`,
+      "query-input": "required name=search_term_string",
+    },
+  };
+
   return (
     <html lang="en">
       <head>
+        <link rel="canonical" href={BASE_URL} />
+        <script
+          type="application/ld+json"
+          // eslint-disable-next-line react/no-danger
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
+        />
+      </head>
+
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         {/* Load gtag.js (GA4) */}
         <Script
           src="https://www.googletagmanager.com/gtag/js?id=G-XTH048GHDB"
@@ -45,16 +116,12 @@ export default function RootLayout({
             gtag('config', 'G-XTH048GHDB');
           `}
         </Script>
+
+        {/* google site verification meta */}
         <meta name="google-site-verification" content="mWLuq6bpiQgQOOg1-GIC5HUqRgzsY-kZTtNskIOeRmA" />
-      </head>
 
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-        {/* root relative container so absolute mid-layer can be positioned */}
         <div className="relative min-h-screen">
-          {/* mid-layer: sits behind content */}
           <div className="mid-layer overflow-visible relative select-none" aria-hidden="true" />
-
-          {/* site content should be above mid-layer */}
           <div className="relative z-10">{children}</div>
         </div>
       </body>
