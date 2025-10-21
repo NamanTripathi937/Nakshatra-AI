@@ -18,6 +18,9 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Nakshatra AI",
   description: "Created by Naman Tripathi",
+  verification: {
+    google: "mWLuq6bpiQgQOOg1-GIC5HUqRgzsY-kZTtNskIOeRmA", 
+  },
 };
 
 export default function RootLayout({
