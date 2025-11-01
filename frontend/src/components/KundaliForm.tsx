@@ -8,7 +8,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { MapPin, Sparkles } from "lucide-react"
 import PlacesAutoComplete from "./ui/placesAutoComplete"
-export default function KundliForm({ onSubmit }: { onSubmit: (data: any) => void }) {
+import { Loader2 } from "lucide-react"
+export default function KundaliForm({ onSubmit , loading }: { onSubmit: (data: any) => void ; loading: boolean }) {
   const [formData, setFormData] = useState({
     year: "",
     month: "",
@@ -144,12 +145,19 @@ const handleInputChange = (field: string, value: string) => {
 
               {/* Submit Button */}
               <Button
-                type="submit"
-                className="w-full h-8 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-medium rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 text-sm"
-              >
-                <Sparkles className="mr-2 h-4 w-4" />
-                Get Astrological Insights
-              </Button>
+  type="submit"
+  disabled={loading}
+  className="w-full h-8 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-medium rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 text-sm"
+>
+  {loading ? (
+    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+  ) : (
+    <>
+      <Sparkles className="mr-2 h-4 w-4" /> Get Astrological Insights
+    </>
+  )}
+</Button>
+
             </form>
           </CardContent>
         </Card>

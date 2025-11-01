@@ -1,5 +1,8 @@
 // app/layout.tsx
+
+
 import type { Metadata } from "next";
+import Header from "../components/Header";
 import Script from "next/script";
 import { Geist, Geist_Mono } from "next/font/google";
 // @ts-ignore - side-effect CSS import has no type declarations
@@ -122,6 +125,7 @@ export default function RootLayout({
 
         <div className="relative min-h-screen">
           <div className="mid-layer overflow-visible relative select-none" aria-hidden="true" />
+            <Header />
           <div className="relative z-10">{children}</div>
         </div>
       </body>
