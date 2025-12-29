@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label"
 import { MapPin, Sparkles } from "lucide-react"
 import PlacesAutoComplete from "./ui/placesAutoComplete"
 import { Loader2 } from "lucide-react"
-export default function KundaliForm({ onSubmit , loading }: { onSubmit: (data: any) => void ; loading: boolean }) {
+export default function KundaliForm({ onSubmit, loading }: { onSubmit: (data: any) => void; loading: boolean }) {
   const [formData, setFormData] = useState({
     year: "",
     month: "",
@@ -18,50 +18,50 @@ export default function KundaliForm({ onSubmit , loading }: { onSubmit: (data: a
     minutes: "",
     seconds: "",
     timezone: "Asia/Kolkata",
-    latitude:"",
+    latitude: "",
     longitude: "",
   })
-  const [placeSelected,setPlaceSelected] = useState(false)
-  const [viewPlaceSelectError,setViewPlaceSelectError] = useState(false)
-const handlePlaceSelect = (lat: number, lon: number) => {
-  setPlaceSelected(true)
-  setViewPlaceSelectError(false)
-  setFormData((prev) => ({
-    ...prev,
-    latitude: lat.toString(),
-    longitude: lon.toString(),
-  }))
-}
-
-
-const handleSubmit = (e: React.FormEvent) => {
-  e.preventDefault()
-  if(!placeSelected){
-    setViewPlaceSelectError(true)
-    return
-  }else{
-    const finalData = {
-    year: parseInt(formData.year),
-    month: parseInt(formData.month),
-    date: parseInt(formData.date),
-    hours: parseInt(formData.hours),
-    minutes: parseInt(formData.minutes),
-    seconds: parseInt(formData.seconds),
-    latitude: parseFloat(formData.latitude),
-    longitude: parseFloat(formData.longitude),
-    timezone: "Asia/Kolkata", 
-    settings: {
-      observation_point: "topocentric",
-      ayanamsha: "lahiri",
-    },
+  const [placeSelected, setPlaceSelected] = useState(false)
+  const [viewPlaceSelectError, setViewPlaceSelectError] = useState(false)
+  const handlePlaceSelect = (lat: number, lon: number) => {
+    setPlaceSelected(true)
+    setViewPlaceSelectError(false)
+    setFormData((prev) => ({
+      ...prev,
+      latitude: lat.toString(),
+      longitude: lon.toString(),
+    }))
   }
-  onSubmit(finalData)
-  }
-}
 
-const handleInputChange = (field: string, value: string) => {
-  setFormData((prev) => ({ ...prev, [field]: value }))
-}
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!placeSelected) {
+      setViewPlaceSelectError(true)
+      return
+    } else {
+      const finalData = {
+        year: parseInt(formData.year),
+        month: parseInt(formData.month),
+        date: parseInt(formData.date),
+        hours: parseInt(formData.hours),
+        minutes: parseInt(formData.minutes),
+        seconds: parseInt(formData.seconds),
+        latitude: parseFloat(formData.latitude),
+        longitude: parseFloat(formData.longitude),
+        timezone: "Asia/Kolkata",
+        settings: {
+          observation_point: "topocentric",
+          ayanamsha: "lahiri",
+        },
+      }
+      onSubmit(finalData)
+    }
+  }
+
+  const handleInputChange = (field: string, value: string) => {
+    setFormData((prev) => ({ ...prev, [field]: value }))
+  }
   return (
     <div className="flex items-center justify-center bg-transparent">
       <div className="w-full max-w-sm sm:max-w-xs md:max-w-sm lg:max-w-md">
@@ -145,18 +145,18 @@ const handleInputChange = (field: string, value: string) => {
 
               {/* Submit Button */}
               <Button
-  type="submit"
-  disabled={loading}
-  className="w-full h-8 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-medium rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 text-sm"
->
-  {loading ? (
-    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-  ) : (
-    <>
-      <Sparkles className="mr-2 h-4 w-4" /> Get Astrological Insights
-    </>
-  )}
-</Button>
+                type="submit"
+                disabled={loading}
+                className="w-full h-8 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-medium rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 text-sm"
+              >
+                {loading ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <>
+                    <Sparkles className="mr-2 h-4 w-4" /> Get Astrological Insights
+                  </>
+                )}
+              </Button>
 
             </form>
           </CardContent>

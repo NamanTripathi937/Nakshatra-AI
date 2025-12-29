@@ -88,7 +88,8 @@ export default function ChatComponent() {
 
    useEffect(() => {
     load();
-    // Listen for storage changes (another tab or same-tab code that writes before navigation)
+    
+    // Listen for storage changes from other tabs/windows
     const onStorage = (ev: StorageEvent) => {
       if (!ev.key) return;
       if (ev.key === messagesKeyForSession(sid)) {
@@ -106,7 +107,32 @@ export default function ChatComponent() {
       }
     };
     window.addEventListener("storage", onStorage);
-    return () => window.removeEventListener("storage", onStorage);
+    
+    // Poll for localStorage changes in same tab (since storage event doesn't fire for same tab)
+    const checkInterval = setInterval(() => {
+      if (!sid) return;
+      try {
+        const current = loadMessagesForSession(sid) || [];
+        setMessages(prev => {
+          // Only update if messages have actually changed
+          if (JSON.stringify(current) !== JSON.stringify(prev.map(({ isNew, ...msg }) => msg))) {
+            const loadedWithFlag = current.map((msg: Message) => ({
+              ...msg,
+              isNew: false
+            }));
+            return loadedWithFlag;
+          }
+          return prev;
+        });
+      } catch (e) {
+        console.warn("failed to poll messages", e);
+      }
+    }, 500); // Check every 500ms
+    
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      clearInterval(checkInterval);
+    };
   }, [sid, load]);
 
   // Save messages to localStorage whenever they change
@@ -278,8 +304,8 @@ export default function ChatComponent() {
         </ScrollArea>
       </div>
 
-      {/* Message Input */}
-      { <div className="bg-transparent ">
+      {/* Message Input - Fixed at bottom */}
+      <div className="flex-shrink-0 bg-transparent border-t border-gray-800">
         <div className="max-w-4xl mx-auto">
           <Card className="p-4 m-2 shadow-lg border-gray-600 bg-transparent">
             <form
@@ -317,7 +343,7 @@ export default function ChatComponent() {
             </div>
           </Card>
         </div>
-      </div>}
+      </div>
     </div>
   )
 }

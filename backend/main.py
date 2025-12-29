@@ -30,7 +30,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "https://nakshatra-ai.vercel.app",  # deployed frontend
-       # "http://localhost:3000",            # for local dev convenience
+       "http://localhost:3000",            # for local dev convenience
     ],
     allow_credentials=True,                 
     allow_methods=["*"],                    
@@ -100,7 +100,7 @@ def get_or_create_chain(session_id: str) -> ConversationChain:
 # ----- Helper to build the LLM prompt summary for kundli -----
 def build_kundli_prompt(kundli: Dict[str, Any], today: datetime) -> str:
     core_rules = (
-        "You are an expert astrologer with full access to the user's Kundli data "
+        "You are an expert 'VEDIC' astrologer with full access to the user's Kundli data . Do not use western terminologies "
         "(including planetary placements and Vimsottari Dasha timeline).\n\n"
         "### Core Rules\n"
         "1. NEVER ask the user for birth details (they are already included) Output in clean Markdown;.\n"

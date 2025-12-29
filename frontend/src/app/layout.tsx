@@ -123,11 +123,23 @@ export default function RootLayout({
         {/* google site verification meta */}
         <meta name="google-site-verification" content="mWLuq6bpiQgQOOg1-GIC5HUqRgzsY-kZTtNskIOeRmA" />
 
-        <div className="relative min-h-screen">
-          <div className="mid-layer overflow-visible relative select-none" aria-hidden="true" />
-            <Header />
-          <div className="relative z-10">{children}</div>
-        </div>
+        <div className="relative h-screen overflow-hidden flex flex-col">
+  {/* 1. Added 'absolute inset-0' to mid-layer. 
+      Background layers should be absolute so they don't push other content down.
+  */}
+  <div className="mid-layer absolute inset-0 overflow-hidden h-screen select-none" aria-hidden="true" />
+
+  {/* Header takes its natural height */}
+  <Header />
+
+  {/* 2. Changed 'h-screen' to 'flex-1'.
+      This tells the div to take up all REMAINING space after the Header.
+      Also added 'flex flex-col' here to help manage the inner chat layout.
+  */}
+  <div className="relative z-10 flex-1 flex flex-col overflow-hidden">
+    {children}
+  </div>
+</div>
       </body>
     </html>
   );

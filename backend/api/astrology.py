@@ -11,14 +11,14 @@ rapid_api_key = os.getenv("rapidapi-key")
 
 api_key = os.getenv("free-api-key")
 payload = {
-    "year": 2003,
-    "month": 5,
-    "date": 7,
-    "hours": 23,
-    "minutes": 30,
+    "year": 2005,
+    "month": 1,
+    "date": 22,
+    "hours": 13,
+    "minutes": 45,
     "seconds": 0,
-    "latitude": 25.3708,
-    "longitude": 86.4734,
+    "latitude": 31.6862,
+    "longitude": 76.5213,
     "timezone": 5.5,
     "config": {
         "observation_point": "topocentric",
