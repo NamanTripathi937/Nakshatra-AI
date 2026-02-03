@@ -8,7 +8,7 @@ load_dotenv()
 logger = logging.getLogger("nakshatra-backend")
 
 # MongoDB Configuration
-MONGODB_URI = os.getenv("MONGODB_URI", "mongodb://localhost:27017/")
+MONGODB_URI = os.getenv("MONGODB_URI")
 DATABASE_NAME = "nakshatra_db"
 
 # Async MongoDB client for FastAPI
