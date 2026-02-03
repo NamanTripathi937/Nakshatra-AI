@@ -160,7 +160,7 @@ def calc_vimshottari_dasha(jd_ut):
 
 
 # --------------- Main generator ---------------
-def generate_chart(birth, house_system='P'):
+def generate_chart(birth, house_system='WS'):
     required = ["year","month","date","hours","minutes","seconds","timezone","latitude","longitude"]
     for k in required:
         if k not in birth:
@@ -252,11 +252,11 @@ def generate_chart(birth, house_system='P'):
 
 
 # --------------- Demo ----------------
-# if __name__ == "__main__":
-#     sample = {
-#         "year": 2003, "month": 5, "day": 7,
-#         "hour": 23, "minute": 30, "second": 0,
-#         "timezone": "Asia/Kolkata",
-#         "latitude": 25.3708, "longitude":86.4734, "altitude_m": 216
-#     }
-#     print(generate_chart(sample, house_system="WS"))
+if __name__ == "__main__":
+    sample = {
+        "year": 2003, "month": 5, "day": 7,
+        "hour": 23, "minute": 30, "second": 0,
+        "timezone": "Asia/Kolkata",
+        "latitude": 25.3708, "longitude":86.4734, "altitude_m": 216
+    }
+    print(generate_chart(sample, house_system="WS"))

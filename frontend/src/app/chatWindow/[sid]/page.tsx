@@ -1,86 +1,151 @@
 "use client"
 
-import React, { useState, useRef, useEffect } from "react"
+import React, { useState, useRef, useEffect, useCallback } from "react"
 
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Textarea } from "@/components/ui/textarea"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Send } from "lucide-react"
-import KundliForm from "./KundliForm"
-import AIMessage from './AImessage'
-import {getOrCreateSessionId} from "@/lib/utils"
+import AIMessage from './components/AImessage'
+import { loadMessagesForSession, messagesKeyForSession, saveMessagesForSession } from "@/lib/utils"
+import { useParams } from "next/navigation"
 
-
+type SessionPayload = {
+  createdAt?: number;
+  messages?: Array<{ id: string; role: string; text: string; createdAt?: number }>;
+};
 interface Message {
   id: string
   content: string
   sender: "user" | "ai"
+  isNew?: boolean // true for newly created messages (should animate), false/undefined for restored messages
 }
 
 export default function ChatComponent() {
-  const [formSubmitted, setFormSubmitted] = useState(false)
+  const params = useParams();
+  const sid = (params && (params as any).sid) ?? ""; 
+  // const [session, setSession] = useState<SessionPayload | null>(null);
   const [messages, setMessages] = useState<Message[]>([])
   const [inputMessage, setInputMessage] = useState("")
   const scrollAreaRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const [loading, setLoading] = useState(false)
+  const [isAITyping, setIsAITyping] = useState(false)
 
-  useEffect(() => {
-    fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/ping`).catch(() => { })
-    console.log('Sent ping to backend')
-  }, [])
-
-  const handleFormSubmit = async (data: any) => {
-    setFormSubmitted(true)
-
-    setMessages(prev => [
-      ...prev,
-      {
-        id: Date.now().toString(),
-        sender: "user",
-        content: "We have received your Birth Details. For privacy purposes, we are not saving it anywhere ✅",
-      },
-    ])
-
-    setLoading(true);
-
-    try {
-      const res = await fetch("/api/kundli", {
-        method: "POST",
-        headers: { "Content-Type": "application/json","X-Session-Id":session_id  },
-        body: JSON.stringify(data),
-      })
-
-      let raw = await res.text()
-
-      try {
-        const parsed = JSON.parse(raw)
-        if (Array.isArray(parsed)) raw = parsed.join("\n")
-      } catch (e) {
-        console.log(e)
-      }
-
-      setMessages(prev => [
-        ...prev,
-        {
-          id: (Date.now() + 1).toString(),
-          sender: "ai",
-          content: raw,
-        },
-      ])
-    } catch (e) {
-      setMessages(prev => [
-        ...prev,
-        {
-          id: (Date.now() + 1).toString(),
-          sender: "ai",
-          content: "⚠️ Error fetching Kundli details. Please try again later.",
-        },
-      ])
-    } finally {
-      setLoading(false)
+   const load = useCallback(() => {
+    if (!sid) {
+      setMessages([]);
+      setLoading(false);
+      return;
     }
+    const loaded = loadMessagesForSession(sid) || [];
+    // Mark all loaded messages as not new (skip animation)
+    const loadedWithFlag = loaded.map((msg: Message) => ({
+      ...msg,
+      isNew: false
+    }));
+    setMessages(loadedWithFlag);
+    setLoading(false);
+  }, [sid]);
+
+
+  const newMessage = inputMessage.trim();
+  // const session_id = getOrCreateSessionId();
+
+  // const storagePrefix = `nakshatra:session:${session_id}`
+
+  // Load persisted UI state on mount
+  // useEffect(() => {
+  //   try {
+  //     const rawMsgs = localStorage.getItem(`${storagePrefix}:messages`)
+  //   //   const rawFormSubmitted = localStorage.getItem(`${storagePrefix}:formSubmitted`)
+  //     const rawInput = localStorage.getItem(`${storagePrefix}:inputMessage`)
+  //     if (rawMsgs) {
+  //       setMessages(JSON.parse(rawMsgs))
+  //     }
+  //     if (rawInput) setInputMessage(rawInput)
+  //   } catch (e) {
+  //     console.warn("Failed to load persisted session state", e)
+  //   }
+  // }, []) // run once per session id
+
+  // // Persist messages & formSubmitted whenever they change
+  // useEffect(() => {
+  //   try {
+  //     localStorage.setItem(`${storagePrefix}:messages`, JSON.stringify(messages))
+  //   //   localStorage.setItem(`${storagePrefix}:formSubmitted`, String(formSubmitted))
+  //   } catch (e) {
+  //     console.warn("Failed to persist session state", e)
+  //   }
+  // }, [messages])
+
+  // // persist inputMessage while typing (small throttling would be nicer)
+  // useEffect(() => {
+  //   try {
+  //     localStorage.setItem(`${storagePrefix}:inputMessage`, inputMessage)
+  //   } catch { /* ignore */ }
+  // }, [inputMessage])
+
+   useEffect(() => {
+    load();
+    
+    // Listen for storage changes from other tabs/windows
+    const onStorage = (ev: StorageEvent) => {
+      if (!ev.key) return;
+      if (ev.key === messagesKeyForSession(sid)) {
+        try {
+          const newVal = ev.newValue ? JSON.parse(ev.newValue) : [];
+          // Mark all loaded messages as not new (skip animation)
+          const loadedWithFlag = newVal.map((msg: Message) => ({
+            ...msg,
+            isNew: false
+          }));
+          setMessages(loadedWithFlag);
+        } catch (e) {
+          console.warn("failed to parse storage event data", e);
+        }
+      }
+    };
+    window.addEventListener("storage", onStorage);
+    
+    // Poll for localStorage changes in same tab (since storage event doesn't fire for same tab)
+    const checkInterval = setInterval(() => {
+      if (!sid) return;
+      try {
+        const current = loadMessagesForSession(sid) || [];
+        setMessages(prev => {
+          // Only update if messages have actually changed
+          if (JSON.stringify(current) !== JSON.stringify(prev.map(({ isNew, ...msg }) => msg))) {
+            const loadedWithFlag = current.map((msg: Message) => ({
+              ...msg,
+              isNew: false
+            }));
+            return loadedWithFlag;
+          }
+          return prev;
+        });
+      } catch (e) {
+        console.warn("failed to poll messages", e);
+      }
+    }, 500); // Check every 500ms
+    
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      clearInterval(checkInterval);
+    };
+  }, [sid, load]);
+
+  // Save messages to localStorage whenever they change
+  useEffect(() => {
+    if (!sid || messages.length === 0) return;
+    // Save messages without the isNew flag (we'll restore them without it)
+    const messagesToSave = messages.map(({ isNew, ...msg }) => msg);
+    saveMessagesForSession(sid, messagesToSave);
+  }, [messages, sid]);
+
+  if (!sid) {
+    return <div className="p-4 text-sm text-gray-400">No session id found.</div>;
   }
 
 
@@ -95,16 +160,13 @@ export default function ChatComponent() {
     scrollToBottom()
   }, [messages])
 
-  const newMessage = inputMessage.trim();
-
-  const session_id = getOrCreateSessionId();
-
   const handleSendMessage = async () => {
     if (newMessage) {
       const userMsg: Message = {
         id: Date.now().toString(),
         content: newMessage,
         sender: "user",
+        isNew: true, // Mark as new (though user messages don't animate anyway)
       }
 
       setMessages(prev => [...prev, userMsg])
@@ -119,7 +181,7 @@ export default function ChatComponent() {
         const res = await Promise.race([
           fetch("/api/chat", {
             method: "POST",
-            headers: { "Content-Type": "application/json","X-Session-Id":session_id },
+            headers: { "Content-Type": "application/json", "X-Session-Id": sid },
             body: JSON.stringify({ query: newMessage }),
             signal: controller.signal,
           }),
@@ -136,22 +198,26 @@ export default function ChatComponent() {
 
         const result = await (res as Response).json()
 
+        setIsAITyping(true) // Start typing animation
         setMessages(prev => [
           ...prev,
           {
             id: (Date.now() + 1).toString(),
             sender: "ai",
             content: result.response,
+            isNew: true, // Mark as new to enable typing animation
           },
         ])
       } catch (error) {
+        setIsAITyping(true) // Start typing animation for error message
         setMessages(prev => [
           ...prev,
           {
             id: (Date.now() + 1).toString(),
             sender: "ai",
             content:
-              "🚀 All out of free stars! You have asked all the free questions we can handle. But do not worry — just refresh + re-enter your details to keep the conversation going 🔮 ",
+              "🚀 All out of free stars! You have asked all the free questions we can handle. But do not worry — just go back and re-enter your details to keep the conversation going 🔮 ",
+            isNew: true, // Mark as new to enable typing animation
           },
         ])
         console.error("Error sending message:", error)
@@ -170,21 +236,7 @@ export default function ChatComponent() {
 
 
   return (
-    <div className="flex flex-col h-screen text-white overflow-hidden ">
-      {/* Header */}
-      <header className=" backdrop-blur-md border-b border-gray-700 shadow-sm mb-4  bg-black/20 scroll-none">
-        <div className="flex items-center justify-center py-4 px-6">
-          <h1 className="text-2xl font-bold bg-gradient-to-r from-white to-blue-300 bg-clip-text text-transparent">
-            ✦ N A K S H A T R A ✦
-          </h1>
-        </div>
-      </header>
-    {!formSubmitted && (
-      <div className="flex flex-1 items-center justify-center px-4 mt-35">
-        <KundliForm onSubmit={handleFormSubmit} />
-      </div>
-    )}
-
+    <div className="flex flex-col h-screen text-white overflow-hidden">
 
       {/* Chat Messages */}
       <div className="flex-1 overflow-hidden mt-2 mb-1 pb-1">
@@ -207,7 +259,12 @@ export default function ChatComponent() {
                       }`}
                   >
                     {msg.sender === "ai" ? (
-                      <AIMessage id={msg.id} content={msg.content} />
+                      <AIMessage 
+                        id={msg.id} 
+                        content={msg.content} 
+                        isNew={msg.isNew ?? false}
+                        onTypingComplete={() => setIsAITyping(false)}
+                      />
                     ) : (
                       <p className="text-sm leading-relaxed whitespace-pre-wrap">
                         {msg.content}
@@ -255,8 +312,8 @@ export default function ChatComponent() {
         </ScrollArea>
       </div>
 
-      {/* Message Input */}
-      {formSubmitted && <div className="bg-transparent ">
+      {/* Message Input - Fixed at bottom */}
+      <div className="flex-shrink-0 bg-transparent border-t border-gray-800">
         <div className="max-w-4xl mx-auto">
           <Card className="p-4 m-2 shadow-lg border-gray-600 bg-transparent">
             <form
@@ -274,11 +331,12 @@ export default function ChatComponent() {
                   onKeyDown={handleKeyPress}
                   placeholder="Ask about your Kundali, planets, career, relationships…"
                   className="max-h-40 min-h-[40px] w-full resize-none bg-black border-gray-600 text-white placeholder:text-gray-400 focus:border-purple-400 focus:ring-purple-400 overflow-y-auto"
+                  disabled={loading || isAITyping}
                 />
               </div>
               <Button
                 type="submit"
-                disabled={!inputMessage.trim()}
+                disabled={!inputMessage.trim() || loading || isAITyping}
                 className="bg-gradient-to-r from-gray-900 to-blue-800 hover:from-purple-700 hover:to-indigo-700 text-white shadow-lg px-6 py-3"
               >
                 <Send className="h-4 w-4" />
@@ -294,7 +352,7 @@ export default function ChatComponent() {
             </div>
           </Card>
         </div>
-      </div>}
+      </div>
     </div>
   )
 }

@@ -7,12 +7,25 @@ import rehypeRaw from "rehype-raw"
 interface AIMessageProps {
   id: string
   content: string
+  isNew?: boolean // true for new messages (animate), false for restored messages (skip animation)
+  onTypingComplete?: () => void // callback when typing animation completes
 }
 
-function useTypingEffect(text: string, id: string): string {
+function useTypingEffect(text: string, id: string, isNew: boolean, onComplete?: () => void): string {
   const [displayed, setDisplayed] = React.useState("")
 
   React.useEffect(() => {
+    // If message is not new (restored from localStorage), skip animation
+    if (!isNew) {
+      setDisplayed(text)
+      // Call onComplete immediately since there's no animation
+      if (onComplete) {
+        onComplete()
+      }
+      return
+    }
+
+    // Otherwise, animate from the beginning
     setDisplayed("")
     let i = 0
 
@@ -27,20 +40,25 @@ function useTypingEffect(text: string, id: string): string {
         // shorter delays = faster speed
         const delay = Math.floor(Math.random() * 40) + 0 // 15–55ms
         setTimeout(typeNext, delay)
+      } else {
+        // Typing complete - call the callback
+        if (onComplete) {
+          onComplete()
+        }
       }
     }
 
     typeNext()
 
     return () => { i = text.length }
-  }, [id, text])
+  }, [id, text, isNew, onComplete])
 
   return displayed
 }
 
 
-export default function AIMessage({ id, content }: AIMessageProps) {
-  const typed = useTypingEffect(content, id)
+export default function AIMessage({ id, content, isNew = false, onTypingComplete }: AIMessageProps) {
+  const typed = useTypingEffect(content, id, isNew)
 
   return (
     <div className="prose prose-invert text-sm leading-relaxed max-w-none">

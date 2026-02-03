@@ -1,4 +1,4 @@
-import ChatPage from "../components/ChatPage";
+import ChatPage from "../components/KundaliPage";
 export default function HomePage() {
   return (
     <main>
