@@ -31,6 +31,7 @@ export default function ChatComponent() {
   const scrollAreaRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const [loading, setLoading] = useState(false)
+  const [isAITyping, setIsAITyping] = useState(false)
 
    const load = useCallback(() => {
     if (!sid) {
@@ -197,6 +198,7 @@ export default function ChatComponent() {
 
         const result = await (res as Response).json()
 
+        setIsAITyping(true) // Start typing animation
         setMessages(prev => [
           ...prev,
           {
@@ -207,6 +209,7 @@ export default function ChatComponent() {
           },
         ])
       } catch (error) {
+        setIsAITyping(true) // Start typing animation for error message
         setMessages(prev => [
           ...prev,
           {
@@ -256,7 +259,12 @@ export default function ChatComponent() {
                       }`}
                   >
                     {msg.sender === "ai" ? (
-                      <AIMessage id={msg.id} content={msg.content} isNew={msg.isNew ?? false} />
+                      <AIMessage 
+                        id={msg.id} 
+                        content={msg.content} 
+                        isNew={msg.isNew ?? false}
+                        onTypingComplete={() => setIsAITyping(false)}
+                      />
                     ) : (
                       <p className="text-sm leading-relaxed whitespace-pre-wrap">
                         {msg.content}
@@ -323,11 +331,12 @@ export default function ChatComponent() {
                   onKeyDown={handleKeyPress}
                   placeholder="Ask about your Kundali, planets, career, relationships…"
                   className="max-h-40 min-h-[40px] w-full resize-none bg-black border-gray-600 text-white placeholder:text-gray-400 focus:border-purple-400 focus:ring-purple-400 overflow-y-auto"
+                  disabled={loading || isAITyping}
                 />
               </div>
               <Button
                 type="submit"
-                disabled={!inputMessage.trim()}
+                disabled={!inputMessage.trim() || loading || isAITyping}
                 className="bg-gradient-to-r from-gray-900 to-blue-800 hover:from-purple-700 hover:to-indigo-700 text-white shadow-lg px-6 py-3"
               >
                 <Send className="h-4 w-4" />
