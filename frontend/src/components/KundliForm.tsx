@@ -8,10 +8,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { MapPin, Sparkles } from "lucide-react"
 import PlacesAutoComplete from "./ui/placesAutoComplete"
-import { Loader2 } from "lucide-react"
-export default function KundaliForm({ onSubmit, loading }: { onSubmit: (data: any) => void; loading: boolean }) {
+export default function KundliForm({ onSubmit }: { onSubmit: (data: any) => void }) {
   const [formData, setFormData] = useState({
-    fullName: "",
     year: "",
     month: "",
     date: "",
@@ -19,51 +17,50 @@ export default function KundaliForm({ onSubmit, loading }: { onSubmit: (data: an
     minutes: "",
     seconds: "",
     timezone: "Asia/Kolkata",
-    latitude: "",
+    latitude:"",
     longitude: "",
   })
-  const [placeSelected, setPlaceSelected] = useState(false)
-  const [viewPlaceSelectError, setViewPlaceSelectError] = useState(false)
-  const handlePlaceSelect = (lat: number, lon: number) => {
-    setPlaceSelected(true)
-    setViewPlaceSelectError(false)
-    setFormData((prev) => ({
-      ...prev,
-      latitude: lat.toString(),
-      longitude: lon.toString(),
-    }))
-  }
+  const [placeSelected,setPlaceSelected] = useState(false)
+  const [viewPlaceSelectError,setViewPlaceSelectError] = useState(false)
+const handlePlaceSelect = (lat: number, lon: number) => {
+  setPlaceSelected(true)
+  setViewPlaceSelectError(false)
+  setFormData((prev) => ({
+    ...prev,
+    latitude: lat.toString(),
+    longitude: lon.toString(),
+  }))
+}
 
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!placeSelected) {
-      setViewPlaceSelectError(true)
-      return
-    } else {
-      const finalData = {
-        fullName: formData.fullName,
-        year: parseInt(formData.year),
-        month: parseInt(formData.month),
-        date: parseInt(formData.date),
-        hours: parseInt(formData.hours),
-        minutes: parseInt(formData.minutes),
-        seconds: parseInt(formData.seconds),
-        latitude: parseFloat(formData.latitude),
-        longitude: parseFloat(formData.longitude),
-        timezone: "Asia/Kolkata",
-        settings: {
-          observation_point: "topocentric",
-          ayanamsha: "lahiri",
-        },
-      }
-      onSubmit(finalData)
-    }
+const handleSubmit = (e: React.FormEvent) => {
+  e.preventDefault()
+  if(!placeSelected){
+    setViewPlaceSelectError(true)
+    return
+  }else{
+    const finalData = {
+    year: parseInt(formData.year),
+    month: parseInt(formData.month),
+    date: parseInt(formData.date),
+    hours: parseInt(formData.hours),
+    minutes: parseInt(formData.minutes),
+    seconds: parseInt(formData.seconds),
+    latitude: parseFloat(formData.latitude),
+    longitude: parseFloat(formData.longitude),
+    timezone: "Asia/Kolkata", 
+    settings: {
+      observation_point: "topocentric",
+      ayanamsha: "lahiri",
+    },
   }
+  onSubmit(finalData)
+  }
+}
 
-  const handleInputChange = (field: string, value: string) => {
-    setFormData((prev) => ({ ...prev, [field]: value }))
-  }
+const handleInputChange = (field: string, value: string) => {
+  setFormData((prev) => ({ ...prev, [field]: value }))
+}
   return (
     <div className="flex items-center justify-center bg-transparent">
       <div className="w-full max-w-sm sm:max-w-xs md:max-w-sm lg:max-w-md">
@@ -79,19 +76,6 @@ export default function KundaliForm({ onSubmit, loading }: { onSubmit: (data: an
         <Card className="shadow-xl border border-gray-700 bg-black/20 backdrop-blur-md pb-2">
           <CardContent className="pb-2">
             <form onSubmit={handleSubmit} className="space-y-3">
-
-              {/* Full Name */}
-              <div className="space-y-1">
-                <Label className="text-xs font-medium text-gray-300">Full Name</Label>
-                <Input
-                  type="text"
-                  placeholder="Enter your full name"
-                  value={formData.fullName}
-                  onChange={(e) => handleInputChange("fullName", e.target.value)}
-                  className="h-9 w-full bg-black border-gray-600 text-gray-100 text-xs placeholder:text-gray-400 focus:border-purple-400 focus:ring-purple-400"
-                  required
-                />
-              </div>
 
               {/* Date of Birth */}
               <div className="space-y-1">
@@ -161,18 +145,11 @@ export default function KundaliForm({ onSubmit, loading }: { onSubmit: (data: an
               {/* Submit Button */}
               <Button
                 type="submit"
-                disabled={loading}
                 className="w-full h-8 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-medium rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 text-sm"
               >
-                {loading ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <>
-                    <Sparkles className="mr-2 h-4 w-4" /> Get Astrological Insights
-                  </>
-                )}
+                <Sparkles className="mr-2 h-4 w-4" />
+                Get Astrological Insights
               </Button>
-
             </form>
           </CardContent>
         </Card>

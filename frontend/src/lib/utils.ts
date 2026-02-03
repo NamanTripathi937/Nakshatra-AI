@@ -10,6 +10,13 @@ export function cn(...inputs: ClassValue[]) {
 
 export const SESSION_KEY = "nakshatra_session_id";
 
+/** Generate a new session ID without checking storage. */
+export function generateNewSessionId(): string {
+  return (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function")
+    ? crypto.randomUUID()
+    : "sid-" + Math.random().toString(36).slice(2, 12);
+}
+
 /** Return or create a session id stored at SESSION_KEY (client-only). */
 export function getOrCreateSessionId(): string {
   if (typeof window === "undefined" || typeof localStorage === "undefined") {

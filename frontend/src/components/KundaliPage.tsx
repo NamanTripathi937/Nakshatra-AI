@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect } from "react"
 import KundaliForm from "./KundaliForm"
-import { getOrCreateSessionId, loadMessagesForSession, saveMessagesForSession, formatBirthDetails } from "@/lib/utils"
+import { generateNewSessionId, loadMessagesForSession, saveMessagesForSession, formatBirthDetails } from "@/lib/utils"
 import { useRouter } from "next/navigation"
 
 
@@ -33,7 +33,12 @@ export default function KundaliPage() {
   const handleFormSubmit = async (data: any) => {
     if (loading) return;   //double click prevention
     setLoading(true);
-    const sessionId = getOrCreateSessionId();
+    // Generate a NEW session ID for each kundali submission
+    const sessionId = generateNewSessionId();
+    // Store it in localStorage so chat page can use it
+    if (typeof localStorage !== "undefined") {
+      localStorage.setItem("nakshatra_session_id", sessionId);
+    }
     const formatted = formatBirthDetails(data);
     const userMsg: Message = {
       id: Date.now().toString(),
@@ -124,12 +129,14 @@ export default function KundaliPage() {
         body: JSON.stringify(data),
       });
 
-      const aiText = await res.text();
+      const result = await res.json();
+      console.log("Kundli API result:", result);
+      console.log("result.response:", result.response);
 
       const aiMsg: Message = {
         id: (Date.now() + 1).toString(),
         sender: "ai",
-        content: aiText || "No response from AI.",
+        content: result.response || "No response from AI.",
       };
 
       // Append AI message to the persisted array and save again

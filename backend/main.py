@@ -2,8 +2,9 @@ import os
 import json
 import logging
 from typing import Any, Dict, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 from threading import Lock
+from contextlib import asynccontextmanager
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request, HTTPException
@@ -17,14 +18,24 @@ from langchain.schema import SystemMessage
 
 # from api.astrology import get_kundli_data // Can use freeastrologyapi.com to get kundli data
 from astro.astro import generate_chart
+from database import connect_to_mongo, close_mongo_connection, get_sessions_collection
+from models import SessionData, Message
 
 # ----- Logging -----
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("nakshatra-backend")
 
-# ----- App -----
-app = FastAPI(title="Nakshatra AI Backend")
+# ----- Database Lifespan -----
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
+    await connect_to_mongo()
+    yield
+    # Shutdown
+    await close_mongo_connection()
 
+# ----- App -----
+app = FastAPI(title="Nakshatra AI Backend", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -158,9 +169,44 @@ async def kundli(request: Request):
         logger.exception("Failed to generate kundli")
         raise HTTPException(status_code=500, detail="Failed to generate kundli")
 
-    # Store kundli per session
+    # Store kundli per session (in memory)
     store_kundli(session_id, kundli)
     logger.info("Stored kundli for session_id=%s", session_id)
+    
+    # Store session data in MongoDB
+    try:
+        sessions_collection = get_sessions_collection()
+        full_name = payload.get("fullName", "Unknown")
+        
+        logger.info("Attempting to save kundli data: full_name=%s, session_id=%s", full_name, session_id)
+        
+        # Check if session already exists
+        existing_session = await sessions_collection.find_one({"session_id": session_id})
+        
+        if existing_session:
+            # Update existing session with birth data (not kundli result)
+            result = await sessions_collection.update_one(
+                {"session_id": session_id},
+                {"$set": {
+                    "full_name": full_name,
+                    "birth_details": payload,
+                    "updated_at": datetime.now(timezone.utc)
+                }}
+            )
+            logger.info("Updated session with birth data for session_id=%s, matched=%s, modified=%s", 
+                       session_id, result.matched_count, result.modified_count)
+        else:
+            # Create new session document (without kundli result)
+            session_doc = SessionData(
+                session_id=session_id,
+                full_name=full_name,
+                birth_details=payload,
+            )
+            result = await sessions_collection.insert_one(session_doc.dict())
+            logger.info("Created new session with birth data for session_id=%s, inserted_id=%s", 
+                       session_id, result.inserted_id)
+    except Exception as e:
+        logger.exception("Failed to save session data to MongoDB (non-fatal): %s", e)
 
     # Create or get the conversation chain for this session and add kundli as a system message in its memory
     chain = get_or_create_chain(session_id)
@@ -183,7 +229,7 @@ async def kundli(request: Request):
         logger.exception("LLM invoke failed for kundli summary; returning kundli without summary")
         summary_text = None
 
-    return {llm_resp.content.strip()}
+    return JSONResponse(content={"response": llm_resp.content.strip()})
 
 
 @app.post("/chat")
@@ -210,6 +256,31 @@ async def chat(request: Request):
 
     # get or create chain for session
     chain = get_or_create_chain(session_id)
+    
+    # Save user message to MongoDB
+    try:
+        sessions_collection = get_sessions_collection()
+        user_message = Message(
+            role="user",
+            message=user_query
+        )
+        
+        # Upsert: update if exists, create if doesn't
+        await sessions_collection.update_one(
+            {"session_id": session_id},
+            {
+                "$push": {"messages": user_message.dict()},
+                "$set": {"updated_at": datetime.now(timezone.utc)},
+                "$setOnInsert": {
+                    "session_id": session_id,
+                    "created_at": datetime.now(timezone.utc)
+                }
+            },
+            upsert=True
+        )
+        logger.info("Saved user message to MongoDB for session_id=%s", session_id)
+    except Exception as e:
+        logger.exception("Failed to save user message to MongoDB (non-fatal): %s", e)
 
     # append kundli if available for the session (keep a compact snippet)
     kundli = get_kundli(session_id)
@@ -229,6 +300,25 @@ async def chat(request: Request):
     except Exception:
         logger.exception("ConversationChain failed for session %s", session_id)
         raise HTTPException(status_code=500, detail="LLM conversation failed")
+    
+    # Save assistant response to MongoDB
+    try:
+        sessions_collection = get_sessions_collection()
+        assistant_message = Message(
+            role="assistant",
+            message=resp_text
+        )
+        
+        await sessions_collection.update_one(
+            {"session_id": session_id},
+            {
+                "$push": {"messages": assistant_message.dict()},
+                "$set": {"updated_at": datetime.now(timezone.utc)}
+            }
+        )
+        logger.info("Saved assistant message to MongoDB for session_id=%s", session_id)
+    except Exception as e:
+        logger.exception("Failed to save assistant message to MongoDB (non-fatal): %s", e)
 
     return JSONResponse(content={"response": resp_text})
 
