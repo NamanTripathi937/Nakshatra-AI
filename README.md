@@ -40,28 +40,56 @@ git clone https://github.com/NamanTripathi937/Nakshatra-AI.git
 cd Nakshatra-AI
 ```
 
-### 2. Backend Setup
+### 2. Install Dependencies
 
+**Backend:**
 ```bash
 cd backend
 pip install -r requirements.txt
-uvicorn main:app --reload
+cd ..
 ```
 
-> Set your `GROQ_API_KEY` as an environment variable in the backend.
-
-### 3. Frontend Setup
-
+**Frontend:**
 ```bash
 cd frontend
 npm install
-npm run dev
+cd ..
 ```
 
-> Add a `.env` file inside `frontend/`:
+### 3. Set Environment Variables
 
+Create `.env` file in `backend/`:
+```env
+GROQ_API_KEY=your_groq_api_key_here
+MONGODB_URI=mongodb://localhost:27017/
+LLM_PROVIDER=groq
+```
+
+Create `.env.local` file in `frontend/`:
 ```env
 NEXT_PUBLIC_BACKEND_URL=http://localhost:8000
+```
+
+### 4. Run the Application
+
+**Option 1 - Single Command (Recommended):**
+```bash
+# Using npm (recommended - organized output)
+npm start
+
+# OR using shell script
+./start.sh
+```
+
+**Option 2 - Separate Terminals:**
+```bash
+# Terminal 1 - Backend
+cd backend
+uvicorn main:app --reload
+
+# Terminal 2 - Frontend
+cd frontend
+npm run dev
 ```
 
 ---
