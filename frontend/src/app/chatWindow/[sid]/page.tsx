@@ -30,13 +30,12 @@ export default function ChatComponent() {
   const [inputMessage, setInputMessage] = useState("")
   const scrollAreaRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
-  const [loading, setLoading] = useState(false)
-  const [isAITyping, setIsAITyping] = useState(false)
+  const [isWaitingForAI, setIsWaitingForAI] = useState(false)
+  const isFetchingChat = useRef(false) // guard to prevent kundli-detection effect from clearing flag during chat API calls
 
    const load = useCallback(() => {
     if (!sid) {
       setMessages([]);
-      setLoading(false);
       return;
     }
     const loaded = loadMessagesForSession(sid) || [];
@@ -46,7 +45,6 @@ export default function ChatComponent() {
       isNew: false
     }));
     setMessages(loadedWithFlag);
-    setLoading(false);
   }, [sid]);
 
 
@@ -144,6 +142,20 @@ export default function ChatComponent() {
     saveMessagesForSession(sid, messagesToSave);
   }, [messages, sid]);
 
+  // Detect if we're waiting for the initial kundli response
+  useEffect(() => {
+    // Don't interfere when a /chat API call is already in progress
+    if (isFetchingChat.current) return;
+    const hasAIMessage = messages.some(msg => msg.sender === "ai");
+    const hasOnlyUserMessages = messages.length >= 1 && !hasAIMessage;
+    
+    if (hasOnlyUserMessages) {
+      setIsWaitingForAI(true);
+    } else if (hasAIMessage) {
+      setIsWaitingForAI(false);
+    }
+  }, [messages]);
+
   if (!sid) {
     return <div className="p-4 text-sm text-gray-400">No session id found.</div>;
   }
@@ -172,7 +184,8 @@ export default function ChatComponent() {
       setMessages(prev => [...prev, userMsg])
 
       setInputMessage("")
-      setLoading(true)
+      isFetchingChat.current = true
+      setIsWaitingForAI(true)
 
       try {
         const controller = new AbortController()
@@ -198,7 +211,6 @@ export default function ChatComponent() {
 
         const result = await (res as Response).json()
 
-        setIsAITyping(true) // Start typing animation
         setMessages(prev => [
           ...prev,
           {
@@ -209,7 +221,6 @@ export default function ChatComponent() {
           },
         ])
       } catch (error) {
-        setIsAITyping(true) // Start typing animation for error message
         setMessages(prev => [
           ...prev,
           {
@@ -222,7 +233,8 @@ export default function ChatComponent() {
         ])
         console.error("Error sending message:", error)
       } finally {
-        setLoading(false)
+        isFetchingChat.current = false
+        setIsWaitingForAI(false)
       }
     }
   }
@@ -263,7 +275,6 @@ export default function ChatComponent() {
                         id={msg.id} 
                         content={msg.content} 
                         isNew={msg.isNew ?? false}
-                        onTypingComplete={() => setIsAITyping(false)}
                       />
                     ) : (
                       <p className="text-sm leading-relaxed whitespace-pre-wrap">
@@ -291,13 +302,18 @@ export default function ChatComponent() {
                 </div>
               </div>
             ))}
-            {loading && (
+            {isWaitingForAI && (
               <div className="flex justify-start">
                 <div className="max-w-[80%] sm:max-w-[70%]">
                   <Card className="px-4 pt-2 pb-4 shadow-md bg-gray-900 border border-gray-700 text-white">
-                    <p className="text-sm leading-relaxed whitespace-pre-wrap italic text-gray-400">
-                      AI is typing<span className="animate-pulse">...</span>
-                    </p>
+                    <div className="flex items-center gap-1 text-sm leading-relaxed italic text-gray-400">
+                      <span>AI is typing</span>
+                      <span className="flex gap-0.5">
+                        <span className="animate-bounce [animation-delay:0ms]">.</span>
+                        <span className="animate-bounce [animation-delay:150ms]">.</span>
+                        <span className="animate-bounce [animation-delay:300ms]">.</span>
+                      </span>
+                    </div>
                   </Card>
                   <div className="flex mt-2 justify-start">
                     <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium bg-gradient-to-r from-gray-500 to-gray-1000 text-white">
@@ -331,12 +347,12 @@ export default function ChatComponent() {
                   onKeyDown={handleKeyPress}
                   placeholder="Ask about your Kundali, planets, career, relationships…"
                   className="max-h-40 min-h-[40px] w-full resize-none bg-black border-gray-600 text-white placeholder:text-gray-400 focus:border-purple-400 focus:ring-purple-400 overflow-y-auto"
-                  disabled={loading || isAITyping}
+                  disabled={isWaitingForAI}
                 />
               </div>
               <Button
                 type="submit"
-                disabled={!inputMessage.trim() || loading || isAITyping}
+                disabled={!inputMessage.trim() || isWaitingForAI}
                 className="bg-gradient-to-r from-gray-900 to-blue-800 hover:from-purple-700 hover:to-indigo-700 text-white shadow-lg px-6 py-3"
               >
                 <Send className="h-4 w-4" />

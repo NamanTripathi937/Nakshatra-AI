@@ -8,25 +8,22 @@ interface AIMessageProps {
   id: string
   content: string
   isNew?: boolean // true for new messages (animate), false for restored messages (skip animation)
-  onTypingComplete?: () => void // callback when typing animation completes
 }
 
-function useTypingEffect(text: string, id: string, isNew: boolean, onComplete?: () => void): string {
+function useTypingEffect(text: string, id: string, isNew: boolean): string {
   const [displayed, setDisplayed] = React.useState("")
+  const timeoutIds = React.useRef<NodeJS.Timeout[]>([])
 
   React.useEffect(() => {
     // If message is not new (restored from localStorage), skip animation
     if (!isNew) {
       setDisplayed(text)
-      // Call onComplete immediately since there's no animation
-      if (onComplete) {
-        onComplete()
-      }
       return
     }
 
     // Otherwise, animate from the beginning
     setDisplayed("")
+    timeoutIds.current = []
     let i = 0
 
     function typeNext() {
@@ -38,26 +35,26 @@ function useTypingEffect(text: string, id: string, isNew: boolean, onComplete?: 
 
       if (i < text.length) {
         // shorter delays = faster speed
-        const delay = Math.floor(Math.random() * 40) + 0 // 15–55ms
-        setTimeout(typeNext, delay)
-      } else {
-        // Typing complete - call the callback
-        if (onComplete) {
-          onComplete()
-        }
+        const delay = Math.floor(Math.random() * 40) + 0 // 0–40ms
+        const timeoutId = setTimeout(typeNext, delay)
+        timeoutIds.current.push(timeoutId)
       }
     }
 
     typeNext()
 
-    return () => { i = text.length }
-  }, [id, text, isNew, onComplete])
+    // Cleanup: clear all pending timeouts
+    return () => {
+      timeoutIds.current.forEach(clearTimeout)
+      timeoutIds.current = []
+    }
+  }, [id, text, isNew])
 
   return displayed
 }
 
 
-export default function AIMessage({ id, content, isNew = false, onTypingComplete }: AIMessageProps) {
+export default function AIMessage({ id, content, isNew = false }: AIMessageProps) {
   const typed = useTypingEffect(content, id, isNew)
 
   return (

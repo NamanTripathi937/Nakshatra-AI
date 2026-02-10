@@ -17,7 +17,6 @@ export default function KundaliForm({ onSubmit, loading }: { onSubmit: (data: an
     date: "",
     hours: "",
     minutes: "",
-    seconds: "",
     timezone: "Asia/Kolkata",
     latitude: "",
     longitude: "",
@@ -48,7 +47,7 @@ export default function KundaliForm({ onSubmit, loading }: { onSubmit: (data: an
         date: parseInt(formData.date),
         hours: parseInt(formData.hours),
         minutes: parseInt(formData.minutes),
-        seconds: parseInt(formData.seconds),
+        seconds: 0,
         latitude: parseFloat(formData.latitude),
         longitude: parseFloat(formData.longitude),
         timezone: "Asia/Kolkata",
@@ -141,14 +140,6 @@ export default function KundaliForm({ onSubmit, loading }: { onSubmit: (data: an
                     placeholder="Min"
                     value={formData.minutes}
                     onChange={(e) => handleInputChange("minutes", e.target.value)}
-                    className="h-9 w-full bg-black border-gray-600 text-gray-100 text-xs placeholder:text-gray-400 focus:border-purple-400 focus:ring-purple-400"
-                    required
-                  />
-                  <Input
-                    type="number"
-                    placeholder="SS"
-                    value={formData.seconds}
-                    onChange={(e) => handleInputChange("seconds", e.target.value)}
                     className="h-9 w-full bg-black border-gray-600 text-gray-100 text-xs placeholder:text-gray-400 focus:border-purple-400 focus:ring-purple-400"
                     required
                   />
