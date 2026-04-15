@@ -67,7 +67,13 @@ if not GROQ_API_KEY:
     raise RuntimeError("GROQ_API_KEY environment variable is required")
 
 # ----- Shared LLM client -----
-llm = ChatGroq(model="openai/gpt-oss-20B", api_key=GROQ_API_KEY)
+llm = ChatGroq(
+    model="openai/gpt-oss-20B",
+    api_key=GROQ_API_KEY,
+    max_tokens=1400,
+    timeout=90,
+    max_retries=3,
+)
 
 # ----- Per-session stores (thread-safe) -----
 _kundli_store: Dict[str, Dict[str, Any]] = {}
@@ -96,6 +102,93 @@ def get_first_name(full_name: Optional[str]) -> str:
     return cleaned.split()[0]
 
 
+def classify_response_mode(user_query: Optional[str], is_first_message: bool = False) -> str:
+    if is_first_message:
+        return "quick_scan"
+
+    query = (user_query or "").lower()
+    deep_dive_markers = [
+        "explain everything",
+        "in detail",
+        "in details",
+        "detailed",
+        "detail please",
+        "deep dive",
+        "elaborate",
+        "thorough",
+        "comprehensive",
+        "full analysis",
+        "complete analysis",
+        "step by step",
+    ]
+    if any(marker in query for marker in deep_dive_markers):
+        return "deep_dive"
+    return "normal_qa"
+
+
+def build_response_style_instructions(user_query: Optional[str] = None, is_first_message: bool = False) -> str:
+    mode = classify_response_mode(user_query, is_first_message=is_first_message)
+    if mode == "quick_scan":
+        return (
+            "### Response Mode: Quick Scan\n"
+            "- Length target: 150 to 200 words.\n"
+            "- Use short structured sections.\n"
+            "- Make it welcoming, insightful, and easy to scan.\n"
+            "- Focus on 3 to 4 strong chart signatures, then end with a warm next-step prompt.\n"
+            "- Do not turn this into a long technical analysis.\n"
+        )
+    if mode == "deep_dive":
+        return (
+            "### Response Mode: Deep Dive\n"
+            "- Length target: 500 to 800 words.\n"
+            "- Use clear Markdown headers and sub-sections.\n"
+            "- Explain the astrological factors in depth and translate them into lived experience.\n"
+            "- Include strengths, challenges, timing if relevant, and practical guidance.\n"
+            "- End with a short remedies or suggestions section when relevant.\n"
+            "- Do not cut the answer off abruptly or compress it into tiny bullets.\n"
+        )
+    return (
+        "### Response Mode: Normal Q&A\n"
+        "- Length target: 200 to 400 words.\n"
+        "- Use 2 to 4 short sections with bold headers when helpful.\n"
+        "- Answer the user's actual question directly, then support it with chart evidence.\n"
+        "- Keep the answer substantial but not overwhelming.\n"
+        "- Avoid one-line bullet dumps or unfinished sentences.\n"
+    )
+
+
+def response_looks_incomplete(text: str) -> bool:
+    stripped = (text or "").rstrip()
+    if not stripped:
+        return False
+    if stripped.endswith(("...", "…", "—", "-", ":", ";")):
+        return True
+    if len(stripped.split()) < 25:
+        return False
+    return stripped[-1].isalnum()
+
+
+def complete_if_truncated(response_text: str) -> str:
+    if not response_looks_incomplete(response_text):
+        return response_text
+
+    try:
+        continuation = llm.invoke(
+            (
+                "Continue the following astrology answer naturally from exactly where it stopped.\n"
+                "Do not restart, do not repeat earlier points, and do not add meta commentary.\n"
+                "Finish the incomplete sentence and, if needed, add one brief concluding sentence only.\n\n"
+                f"Partial answer:\n{response_text}"
+            )
+        )
+        continuation_text = getattr(continuation, "content", str(continuation)).strip()
+        if continuation_text:
+            return f"{response_text.rstrip()} {continuation_text.lstrip()}"
+    except Exception:
+        logger.exception("Failed to complete truncated response")
+    return response_text
+
+
 def find_next_mahadasha(kundli: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     timeline = kundli.get("vimshottari_dasha", {}).get("mahadashas", [])
     for idx, maha in enumerate(timeline):
@@ -110,11 +203,17 @@ def summarize_planets(kundli: Dict[str, Any], names: list[str]) -> list[Dict[str
     planets = []
     for planet in kundli.get("planets", []):
         if planet.get("name") in names and "error" not in planet:
+            nakshatra = planet.get("nakshatra", {})
             planets.append({
                 "name": planet["name"],
                 "sign": planet["sign"],
                 "house": planet["house"],
                 "retrograde": planet["retrograde"],
+                "nakshatra": {
+                    "name": nakshatra.get("name"),
+                    "lord": nakshatra.get("lord"),
+                    "pada": nakshatra.get("pada"),
+                },
             })
     return planets
 
@@ -268,6 +367,124 @@ def summarize_children_context(kundli: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+def summarize_siblings_context(kundli: Dict[str, Any]) -> Dict[str, Any]:
+    house_lords = (kundli.get("yoga_analysis", {}) or {}).get("house_lords", {})
+    planets = {
+        planet.get("name"): planet
+        for planet in kundli.get("planets", [])
+        if "error" not in planet
+    }
+    vedic_aspects = kundli.get("vedic_aspects", {})
+
+    def build_house_summary(house_no: int) -> Dict[str, Any]:
+        house = house_lords.get(str(house_no), {})
+        lord_name = house.get("lord")
+        lord = planets.get(lord_name) if lord_name else None
+        occupants = sorted(
+            [
+                planet.get("name")
+                for planet in kundli.get("planets", [])
+                if "error" not in planet and planet.get("house") == house_no
+            ]
+        )
+        aspected_by = [
+            {
+                "from": aspect.get("from"),
+                "aspect_name": aspect.get("aspect_name"),
+                "aspect_type": aspect.get("aspect_type"),
+            }
+            for aspect in vedic_aspects.get("house_aspects", [])
+            if aspect.get("to_house") == house_no
+        ]
+        lord_aspected_by = [
+            {
+                "from": aspect.get("from"),
+                "aspect_name": aspect.get("aspect_name"),
+                "aspect_type": aspect.get("aspect_type"),
+            }
+            for aspect in vedic_aspects.get("planet_to_planet", [])
+            if aspect.get("to") == lord_name
+        ]
+        return {
+            "house": house_no,
+            "sign": house.get("sign"),
+            "lord": lord_name,
+            "occupants": occupants,
+            "aspected_by": aspected_by,
+            "lord_placement": (
+                {
+                    "name": lord_name,
+                    "sign": lord.get("sign"),
+                    "house": lord.get("house"),
+                    "retrograde": lord.get("retrograde"),
+                    "aspected_by": lord_aspected_by,
+                }
+                if lord
+                else None
+            ),
+        }
+
+    return {
+        "younger_siblings": build_house_summary(3),
+        "elder_siblings": build_house_summary(11),
+        "karakas": {
+            "Mercury": (
+                {
+                    "sign": planets["Mercury"].get("sign"),
+                    "house": planets["Mercury"].get("house"),
+                }
+                if "Mercury" in planets else None
+            ),
+            "Mars": (
+                {
+                    "sign": planets["Mars"].get("sign"),
+                    "house": planets["Mars"].get("house"),
+                }
+                if "Mars" in planets else None
+            ),
+        },
+    }
+
+
+def summarize_divisional_chart(
+    kundli: Dict[str, Any],
+    chart_code: str,
+    key_planets: list[str],
+    focal_house: Optional[str] = None,
+) -> Optional[Dict[str, Any]]:
+    divisional = (kundli.get("divisional_charts") or {}).get(chart_code)
+    if not divisional:
+        return None
+
+    planets = {
+        planet.get("name"): planet
+        for planet in divisional.get("planets", [])
+        if "error" not in planet
+    }
+
+    summary = {
+        "chart": divisional.get("chart"),
+        "name": divisional.get("name"),
+        "purpose": divisional.get("purpose"),
+        "ascendant": divisional.get("ascendant"),
+        "key_planets": [
+            {
+                "name": name,
+                "sign": planets[name].get("sign"),
+                "house": planets[name].get("house"),
+                "retrograde": planets[name].get("retrograde"),
+                "source_sign": planets[name].get("source_sign"),
+                "source_house": planets[name].get("source_house"),
+            }
+            for name in key_planets
+            if name in planets
+        ],
+    }
+    if focal_house:
+        summary["focal_house"] = (divisional.get("house_lords") or {}).get(str(focal_house))
+    return summary
+
+
 def derive_ketu_context(kundli: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     rahu = next(
         (
@@ -328,6 +545,14 @@ def get_dasha_lord_context(kundli: Dict[str, Any], planet_name: Optional[str]) -
 
 def build_prompt_kundli_context(kundli: Dict[str, Any], user_query: Optional[str] = None) -> Dict[str, Any]:
     query = (user_query or "").lower()
+    wants_marriage = any(
+        token in query
+        for token in ["marriage", "spouse", "wife", "husband", "partner", "relationship", "love", "romance"]
+    )
+    wants_career = any(
+        token in query
+        for token in ["career", "profession", "job", "work", "business", "status", "promotion"]
+    )
     wants_dasha = any(
         token in query
         for token in ["dasha", "mahadasha", "antardasha", "pratyantardasha", "next", "future", "when", "marriage", "career", "time"]
@@ -362,6 +587,10 @@ def build_prompt_kundli_context(kundli: Dict[str, Any], user_query: Optional[str
             "son", "daughter",
         ]
     )
+    wants_siblings = any(
+        token in query
+        for token in ["sibling", "siblings", "brother", "brothers", "sister", "sisters"]
+    )
 
     current_dasha = kundli.get("current_dasha", {})
     next_mahadasha = find_next_mahadasha(kundli)
@@ -374,6 +603,7 @@ def build_prompt_kundli_context(kundli: Dict[str, Any], user_query: Optional[str
 
     context = {
         "ascendant": kundli.get("ascendant"),
+        "janma_nakshatra": kundli.get("janma_nakshatra"),
         "key_planets": summarize_planets(
             kundli,
             ["Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn", "TrueNode"],
@@ -422,6 +652,25 @@ def build_prompt_kundli_context(kundli: Dict[str, Any], user_query: Optional[str
     if wants_children:
         context["children_analysis"] = summarize_children_context(kundli)
 
+    if wants_siblings:
+        context["siblings_analysis"] = summarize_siblings_context(kundli)
+
+    if wants_marriage:
+        context["navamsha_d9"] = summarize_divisional_chart(
+            kundli,
+            "D9",
+            ["Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn", "TrueNode"],
+            focal_house="7",
+        )
+
+    if wants_career:
+        context["dashamsha_d10"] = summarize_divisional_chart(
+            kundli,
+            "D10",
+            ["Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn", "TrueNode"],
+            focal_house="10",
+        )
+
     return context
 
 
@@ -441,6 +690,7 @@ def build_first_message_context(kundli: Dict[str, Any], profile: Optional[Dict[s
             "longitude": kundli.get("input", {}).get("longitude"),
         },
         "ascendant": kundli.get("ascendant"),
+        "janma_nakshatra": kundli.get("janma_nakshatra"),
         "current_dasha": kundli.get("current_dasha"),
         "key_planets": summarize_planets(
             kundli,
@@ -485,6 +735,7 @@ def get_or_create_chain(session_id: str) -> ConversationChain:
 
 # ----- Helper to build the LLM prompt summary for kundli -----
 def build_kundli_prompt(kundli: Dict[str, Any], profile: Optional[Dict[str, Any]], today: datetime) -> str:
+    response_style = build_response_style_instructions(is_first_message=True)
     core_rules = (
         "You are writing the very first message inside Nakshatra AI after a user submits birth details.\n"
         "You are an expert Vedic astrologer. Use only the provided chart data. Do not use western terminology.\n\n"
@@ -497,7 +748,7 @@ def build_kundli_prompt(kundli: Dict[str, Any], profile: Optional[Dict[str, Any]
         "6. If a yoga is strong, present it confidently in plain language. If a yoga is conditional, mention it only with nuance.\n"
         "7. Use crisp, premium Markdown formatting with bold headers and tasteful emojis. No tables.\n"
         "8. End with one warm, concise prompt inviting the user to choose one of: career, relationships, or deeper purpose.\n"
-        "9. Target length: 180 to 260 words.\n\n"
+        "9. Follow the response mode instructions exactly for length and depth.\n\n"
         "### Output Format (must follow this structure)\n"
         "## 🌌 Welcome to your Nakshatra AI reading, {first_name}\n"
         "A short 2-sentence opening that captures the user's chart essence.\n"
@@ -521,6 +772,8 @@ def build_kundli_prompt(kundli: Dict[str, Any], profile: Optional[Dict[str, Any]
     )
 
     prompt = f"""{core_rules}
+{response_style}
+
 ### User Profile
 {json.dumps({"full_name": (profile or {}).get("full_name"), "first_name": get_first_name((profile or {}).get("full_name"))}, indent=2)}
 
@@ -692,6 +945,7 @@ async def chat(request: Request):
     if kundli:
         prompt_kundli = build_prompt_kundli_context(kundli, user_query)
         kundli_str = json.dumps(prompt_kundli, ensure_ascii=False)
+        response_style = build_response_style_instructions(user_query=user_query)
         final_input = (
             "You are an expert Vedic astrologer. Use only the provided Kundli data.\n"
             "Do not invent dates, dashas, yogas, or transits.\n"
@@ -701,6 +955,8 @@ async def chat(request: Request):
             "Treat dasha-lord house/sign context as natal placement only, not house rulership. Rahu and Ketu are placements, not house lords.\n"
             "If asked about yogas or Sade Sati, answer each requested item as present/absent with one evidence line.\n"
             "If the question is about relationships, marriage, career, health, planetary influence, or drishti, use the relevant Vedic aspects from the provided data explicitly.\n"
+            "If Navamsha (D9) data is provided and the question is about marriage, spouse, partner, love, or relationship patterns, use D9 as a supporting chart for spouse character, married life, and dharma, while keeping the natal chart primary.\n"
+            "If Dashamsha (D10) data is provided and the question is about career, profession, work, business, status, or public role, use D10 as a supporting chart for professional direction and public-life themes, while keeping the natal chart primary.\n"
             "When aspects are relevant, mention which planet aspects which house or planet and whether it is a standard or special aspect.\n"
             "If you mention exalted, debilitated, own-sign, moolatrikona, combust, functional benefic, or functional malefic, never leave it as jargon alone.\n"
             "Always add one plain-language line explaining what that condition means in this chart and how it may affect the person's experience, strengths, challenges, or outcomes.\n"
@@ -710,7 +966,11 @@ async def chat(request: Request):
             "Only say a planet aspects the 5th house if it appears under the 5th-house aspect data. If it only aspects the 5th lord, say it aspects the 5th lord.\n"
             "Never say the 12th house is the house of children.\n"
             "Do not claim an exact number of children unless the provided chart data gives an explicit, defensible numerical indication; otherwise say the chart shows supportive, mixed, or challenging indications and explain why.\n"
-            "Answer very concisely in Markdown bullets without tables.\n\n"
+            "If the question is about siblings, brothers, or sisters, analyze the 3rd house for younger siblings, the 11th house for elder siblings, their lords, occupants, and relevant aspects from the provided data.\n"
+            "Do not describe the 5th house as the sibling house.\n"
+            "If sibling indications are mixed, say so clearly instead of forcing certainty.\n"
+            "Use Markdown and make the response readable and complete. No tables.\n\n"
+            f"{response_style}\n"
             f"User Query: {user_query}\n\n"
             f"Reference Kundli Data:\n{kundli_str}"
         )
@@ -721,6 +981,7 @@ async def chat(request: Request):
     try:
         # Note: ConversationChain.predict may be synchronous depending on LangChain adapter
         resp_text = chain.predict(input=final_input).strip()
+        resp_text = complete_if_truncated(resp_text)
     except Exception:
         logger.exception("ConversationChain failed for session %s", session_id)
         raise HTTPException(status_code=500, detail="LLM conversation failed")

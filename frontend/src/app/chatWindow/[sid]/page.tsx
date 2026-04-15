@@ -22,6 +22,16 @@ interface Message {
   isNew?: boolean // true for newly created messages (should animate), false/undefined for restored messages
 }
 
+const CHAT_TIMEOUT_MS = 90000
+
+function getFriendlyChatErrorMessage(error: unknown): string {
+  const message = error instanceof Error ? error.message : ""
+  if (message.toLowerCase().includes("timeout")) {
+    return "🔮 This reading is taking longer than usual. Please try again in a moment, and I’ll continue from where we left off."
+  }
+  return "🔮 I ran into a temporary server issue while preparing your reading. Please try the question again in a moment."
+}
+
 export default function ChatComponent() {
   const params = useParams();
   const sid = (params && (params as any).sid) ?? ""; 
@@ -189,7 +199,7 @@ export default function ChatComponent() {
 
       try {
         const controller = new AbortController()
-        const timeout = setTimeout(() => controller.abort(), 30000)
+        const timeout = setTimeout(() => controller.abort(), CHAT_TIMEOUT_MS)
 
         const res = await Promise.race([
           fetch("/api/chat", {
@@ -199,14 +209,25 @@ export default function ChatComponent() {
             signal: controller.signal,
           }),
           new Promise<null>((_, reject) =>
-            setTimeout(() => reject(new Error("timeout")), 30000)
+            setTimeout(() => reject(new Error("timeout")), CHAT_TIMEOUT_MS)
           ),
         ])
 
         clearTimeout(timeout)
 
-        if (!res || !(res as Response).ok) {
-          throw new Error("Server error or timeout.")
+        if (!res) {
+          throw new Error("timeout")
+        }
+
+        if (!(res as Response).ok) {
+          let backendMessage = ""
+          try {
+            const result = await (res as Response).json()
+            backendMessage = result?.error || result?.detail || ""
+          } catch {
+            backendMessage = ""
+          }
+          throw new Error(backendMessage || "server_error")
         }
 
         const result = await (res as Response).json()
@@ -226,8 +247,7 @@ export default function ChatComponent() {
           {
             id: (Date.now() + 1).toString(),
             sender: "ai",
-            content:
-              "🚀 All out of free stars! You have asked all the free questions we can handle. But do not worry — just go back and re-enter your details to keep the conversation going 🔮 ",
+            content: getFriendlyChatErrorMessage(error),
             isNew: true, // Mark as new to enable typing animation
           },
         ])

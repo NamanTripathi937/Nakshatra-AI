@@ -119,6 +119,27 @@ FUNCTIONAL_HOUSE_SCORES = {
 DASHA_ORDER = ["Ketu","Venus","Sun","Moon","Mars","Rahu","Jupiter","Saturn","Mercury"]
 DASHA_YEARS = {"Ketu":7,"Venus":20,"Sun":6,"Moon":10,"Mars":7,"Rahu":18,"Jupiter":16,"Saturn":19,"Mercury":17}
 NAKSHATRA_LORDS = DASHA_ORDER * 3  # 27
+NAKSHATRA_NAMES = [
+    "Ashwini", "Bharani", "Krittika", "Rohini", "Mrigashira", "Ardra",
+    "Punarvasu", "Pushya", "Ashlesha", "Magha", "Purva Phalguni", "Uttara Phalguni",
+    "Hasta", "Chitra", "Swati", "Vishakha", "Anuradha", "Jyeshtha",
+    "Mula", "Purva Ashadha", "Uttara Ashadha", "Shravana", "Dhanishta",
+    "Shatabhisha", "Purva Bhadrapada", "Uttara Bhadrapada", "Revati",
+]
+NAKSHATRA_SIZE = 360.0 / 27.0
+PADA_SIZE = NAKSHATRA_SIZE / 4.0
+DIVISIONAL_CHART_META = {
+    "D9": {
+        "division": 9,
+        "name": "Navamsha",
+        "purpose": "Marriage, spouse character, dharma, and inner strength of the chart",
+    },
+    "D10": {
+        "division": 10,
+        "name": "Dashamsha",
+        "purpose": "Career, profession, status, and public work",
+    },
+}
 
 
 # ---------------- Helpers ----------------
@@ -131,6 +152,91 @@ def zodiac_sign_from_longitude(lon):
     si = int(lon // 30)
     deg_in = lon - si * 30
     return si, ZODIAC[si], deg_in
+
+def get_nakshatra_details(lon):
+    lon = normalize_angle(lon)
+    nak_index = int(lon // NAKSHATRA_SIZE)
+    degrees_into_nakshatra = lon - nak_index * NAKSHATRA_SIZE
+    pada = min(4, int(degrees_into_nakshatra // PADA_SIZE) + 1)
+    return {
+        "name": NAKSHATRA_NAMES[nak_index],
+        "index": nak_index + 1,
+        "lord": NAKSHATRA_LORDS[nak_index],
+        "pada": pada,
+        "degrees_in_nakshatra": round(degrees_into_nakshatra, 6),
+    }
+
+def get_divisional_chart_start_sign(sign_index, division):
+    sign_index = int(sign_index) % 12
+    if division == 9:
+        if sign_index in {0, 3, 6, 9}:  # movable
+            return sign_index
+        if sign_index in {1, 4, 7, 10}:  # fixed
+            return (sign_index + 8) % 12
+        return (sign_index + 4) % 12  # dual
+    if division == 10:
+        if (sign_index + 1) % 2 == 1:  # odd signs
+            return sign_index
+        return (sign_index + 8) % 12  # even signs start from 9th
+    raise ValueError(f"Unsupported divisional chart division: {division}")
+
+def get_divisional_longitude(lon, division):
+    lon = normalize_angle(lon)
+    sign_index, _, degree_in_sign = zodiac_sign_from_longitude(lon)
+    segment_size = 30.0 / float(division)
+    segment_index = min(int(degree_in_sign // segment_size), int(division) - 1)
+    start_sign = get_divisional_chart_start_sign(sign_index, division)
+    divisional_sign_index = (start_sign + segment_index) % 12
+    degree_in_segment = degree_in_sign - segment_index * segment_size
+    divisional_degree_in_sign = (degree_in_segment / segment_size) * 30.0
+    return normalize_angle(divisional_sign_index * 30.0 + divisional_degree_in_sign)
+
+def build_divisional_chart(chart_code, asc_longitude, planets_out):
+    meta = DIVISIONAL_CHART_META[chart_code]
+    division = meta["division"]
+    asc_div_lon = get_divisional_longitude(asc_longitude, division)
+    asc_sign_index, asc_sign_name, asc_degree_in_sign = zodiac_sign_from_longitude(asc_div_lon)
+    asc_sign_start = asc_sign_index * 30.0
+    cusps_used = [normalize_angle(asc_sign_start + i * 30.0) for i in range(12)]
+
+    planets = []
+    for planet in planets_out:
+        if "error" in planet:
+            continue
+        divisional_lon = get_divisional_longitude(planet["longitude_deg"], division)
+        sign_index, sign_name, degree_in_sign = zodiac_sign_from_longitude(divisional_lon)
+        planets.append({
+            "name": planet["name"],
+            "longitude_deg": round(divisional_lon, 6),
+            "sign": sign_name,
+            "sign_index": sign_index + 1,
+            "degree_in_sign": round(degree_in_sign, 6),
+            "house": get_house_for_longitude(divisional_lon, cusps_used),
+            "retrograde": planet.get("retrograde", False),
+            "source_longitude_deg": planet["longitude_deg"],
+            "source_sign": planet["sign"],
+            "source_house": planet["house"],
+        })
+
+    return {
+        "chart": chart_code,
+        "name": meta["name"],
+        "division": division,
+        "purpose": meta["purpose"],
+        "house_system": "Whole Sign",
+        "ascendant": {
+            "longitude_deg": round(asc_div_lon, 6),
+            "sign": asc_sign_name,
+            "sign_index": asc_sign_index + 1,
+            "degree_in_sign": round(asc_degree_in_sign, 6),
+        },
+        "house_cusps_deg": build_house_cusps_dict(cusps_used),
+        "house_lords": {
+            str(house_no): data
+            for house_no, data in build_house_lords(cusps_used).items()
+        },
+        "planets": planets,
+    }
 
 def normalize_cusps_array_raw(cusps_raw):
     n = len(cusps_raw)
@@ -945,12 +1051,11 @@ def calc_vimshottari_dasha(jd_ut):
     swe.set_sid_mode(swe.SIDM_LAHIRI)
     xx, _ = swe.calc_ut(jd_ut, swe.MOON, swe.FLG_SIDEREAL)
     moon_lon_sid = normalize_angle(xx[0])
+    moon_nakshatra = get_nakshatra_details(moon_lon_sid)
 
-    nak_size = 360.0/27.0
-    nak_index = int(moon_lon_sid // nak_size)
-    first_lord = NAKSHATRA_LORDS[nak_index]
+    first_lord = moon_nakshatra["lord"]
 
-    frac_into = (moon_lon_sid % nak_size) / nak_size
+    frac_into = (moon_lon_sid % NAKSHATRA_SIZE) / NAKSHATRA_SIZE
     frac_left = 1.0 - frac_into
     first_maha_years = DASHA_YEARS[first_lord]
     balance_years = frac_left * first_maha_years
@@ -999,6 +1104,7 @@ def calc_vimshottari_dasha(jd_ut):
         }
 
     return {
+        "moon_nakshatra": moon_nakshatra,
         "timeline_start": jd_to_iso(first_maha_start_jd),
         "timeline_end": jd_to_iso(mahadasha_timeline[-1]["end_jd"]) if mahadasha_timeline else None,
         "mahadashas": [serialize_dasha_period(mahadasha) for mahadasha in mahadasha_timeline],
@@ -1074,6 +1180,7 @@ def generate_chart(birth, house_system='WS'):
             speed = safe_calc_speed(jd_ut_local, pcode)
             retro = (speed is not None and speed < 0)
             sign_idx, sign_name, deg_in_sign = zodiac_sign_from_longitude(lon_deg)
+            nakshatra = get_nakshatra_details(lon_deg)
             house_no = get_house_for_longitude(lon_deg, cusps_used)
             planets_out.append({
                 "name": pname,
@@ -1083,6 +1190,7 @@ def generate_chart(birth, house_system='WS'):
                 "sign": sign_name,
                 "sign_index": sign_idx + 1,
                 "degree_in_sign": round(deg_in_sign, 6),
+                "nakshatra": nakshatra,
                 "house": house_no,
                 "retrograde": bool(retro)
             })
@@ -1098,7 +1206,10 @@ def generate_chart(birth, house_system='WS'):
     dasha_data = calc_vimshottari_dasha(jd_ut_local)
     yoga_data = detect_yogas(cusps_used, planets_out)
     aspect_data = compute_vedic_aspects(cusps_used, planets_out)
-    print("Current dasha", dasha_data["current"])
+    divisional_charts = {
+        chart_code: build_divisional_chart(chart_code, asc_sid, planets_out)
+        for chart_code in DIVISIONAL_CHART_META
+    }
 
     out = {
         "input": {
@@ -1115,15 +1226,16 @@ def generate_chart(birth, house_system='WS'):
             "degree_in_sign": round(asc_deg_in_sign, 6)
         },
         "house_cusps_deg": build_house_cusps_dict(cusps_used),
+        "janma_nakshatra": dasha_data.get("moon_nakshatra"),
         "planets": planets_out,
         "planetary_conditions": condition_data,
         "vedic_aspects": aspect_data,
         "yoga_analysis": yoga_data,
         "current_dasha": dasha_data["current"],
         "vimshottari_dasha": dasha_data,
+        "divisional_charts": divisional_charts,
         # "notes": f"House system: {'Whole-Sign' if str(house_system).upper().startswith('W') else 'Placidus'} | Sidereal (Lahiri)"
     }
-    print("Generated chart data",out)
     return json.dumps(out, indent=2)
 
 

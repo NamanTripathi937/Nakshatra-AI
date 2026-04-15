@@ -12,28 +12,36 @@ if (!query || typeof query !== 'string') {
 }
 
   try {
-  const sessionId = req.headers["x-session-id"] as string ;
-  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
-  const response = await fetch(`${backendUrl}/chat`, {
-    method: "POST",
-    headers: { 
-      "Content-Type": "application/json",
-       "X-Session-Id": sessionId
-    },
-    body:  JSON.stringify({ query }),  
-  });
+    const sessionId = req.headers["x-session-id"] as string;
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 85000);
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("Backend returned error:", errorText);
-      return res.status(500).json({ error: "Backend error: " + errorText });
+    try {
+      const response = await fetch(`${backendUrl}/chat`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Session-Id": sessionId
+        },
+        body: JSON.stringify({ query }),
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("Backend returned error:", errorText);
+        return res.status(response.status).json({ error: errorText || "Backend error" });
+      }
+
+      const reply = await response.json();
+      console.log("Chat reply received:", reply);
+      res.status(200).json(reply);
+    } finally {
+      clearTimeout(timeout);
     }
-
-    const reply = await response.json();
-    console.log("Chat reply received:", reply);
-    res.status(200).json(reply);
   } catch (error) {
     console.error("Error forwarding to backend:", error);
-    res.status(500).json({ error: "Failed to fetch from backend" });
+    res.status(502).json({ error: "Failed to fetch from backend" });
   }
 }
