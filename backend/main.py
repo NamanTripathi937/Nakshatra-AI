@@ -119,6 +119,155 @@ def summarize_planets(kundli: Dict[str, Any], names: list[str]) -> list[Dict[str
     return planets
 
 
+def summarize_vedic_aspects(kundli: Dict[str, Any], names: list[str]) -> Dict[str, Any]:
+    vedic_aspects = kundli.get("vedic_aspects", {})
+    by_planet = vedic_aspects.get("by_planet", {})
+    summary = []
+
+    for name in names:
+        data = by_planet.get(name)
+        if not data:
+            continue
+        summary.append({
+            "planet": name,
+            "house": data.get("house"),
+            "sign": data.get("sign"),
+            "aspects": [
+                {
+                    "aspect_name": aspect.get("aspect_name"),
+                    "aspect_type": aspect.get("aspect_type"),
+                    "target_house": aspect.get("target_house"),
+                    "target_sign": aspect.get("target_sign"),
+                    "target_planets": aspect.get("target_planets", []),
+                }
+                for aspect in data.get("aspects", [])
+            ],
+        })
+
+    return {
+        "node_basis": vedic_aspects.get("node_basis"),
+        "by_planet": summary,
+    }
+
+
+def summarize_planetary_conditions(
+    kundli: Dict[str, Any],
+    names: list[str],
+    user_query: Optional[str] = None,
+) -> Dict[str, Any]:
+    planetary_conditions = kundli.get("planetary_conditions", {})
+    query = (user_query or "").lower()
+    wants_combustion = any(token in query for token in ["combust", "combustion", "sun"])
+    wants_functional = any(token in query for token in ["benefic", "malefic", "functional"])
+    wants_dignity = any(
+        token in query
+        for token in ["exalt", "debil", "own sign", "moolatrikona", "strong", "weak", "strength"]
+    )
+    if not any([wants_combustion, wants_functional, wants_dignity]):
+        wants_combustion = wants_functional = wants_dignity = True
+
+    summary = {}
+    for name in names:
+        conditions = planetary_conditions.get(name)
+        if not conditions:
+            continue
+        compact = {}
+        dignity = conditions.get("dignity") or {}
+        combustion = conditions.get("combustion") or {}
+        functional = conditions.get("functional_nature") or {}
+
+        if wants_dignity and dignity.get("status") not in {None, "not_applicable", "ordinary"}:
+            compact["dignity"] = dignity.get("status")
+        if wants_combustion and combustion.get("status") == "combust":
+            compact["combustion"] = {
+                "status": "combust",
+                "distance_from_sun_deg": combustion.get("distance_from_sun_deg"),
+            }
+        if wants_functional and functional.get("status") not in {None, "not_applicable"}:
+            compact["functional_nature"] = {
+                "status": functional.get("status"),
+                "ruled_houses": functional.get("ruled_houses", []),
+            }
+
+        if compact:
+            summary[name] = compact
+    return summary
+
+
+def summarize_children_context(kundli: Dict[str, Any]) -> Dict[str, Any]:
+    house_lords = (kundli.get("yoga_analysis", {}) or {}).get("house_lords", {})
+    fifth_house = house_lords.get("5", {})
+    fifth_lord_name = fifth_house.get("lord")
+
+    planets = {
+        planet.get("name"): planet
+        for planet in kundli.get("planets", [])
+        if "error" not in planet
+    }
+    fifth_lord = planets.get(fifth_lord_name) if fifth_lord_name else None
+    jupiter = planets.get("Jupiter")
+    occupants = sorted(
+        [
+            planet.get("name")
+            for planet in kundli.get("planets", [])
+            if "error" not in planet and planet.get("house") == 5
+        ]
+    )
+
+    vedic_aspects = kundli.get("vedic_aspects", {})
+    house_aspects = [
+        {
+            "from": aspect.get("from"),
+            "aspect_name": aspect.get("aspect_name"),
+            "aspect_type": aspect.get("aspect_type"),
+        }
+        for aspect in vedic_aspects.get("house_aspects", [])
+        if aspect.get("to_house") == 5
+    ]
+    fifth_lord_aspects = [
+        {
+            "from": aspect.get("from"),
+            "aspect_name": aspect.get("aspect_name"),
+            "aspect_type": aspect.get("aspect_type"),
+        }
+        for aspect in vedic_aspects.get("planet_to_planet", [])
+        if aspect.get("to") == fifth_lord_name
+    ]
+
+    conditions = kundli.get("planetary_conditions", {})
+
+    return {
+        "fifth_house": {
+            "sign": fifth_house.get("sign"),
+            "lord": fifth_lord_name,
+            "occupants": occupants,
+            "aspected_by": house_aspects,
+        },
+        "fifth_lord": (
+            {
+                "name": fifth_lord_name,
+                "sign": fifth_lord.get("sign"),
+                "house": fifth_lord.get("house"),
+                "retrograde": fifth_lord.get("retrograde"),
+                "conditions": conditions.get(fifth_lord_name, {}),
+                "aspected_by": fifth_lord_aspects,
+            }
+            if fifth_lord
+            else None
+        ),
+        "jupiter": (
+            {
+                "sign": jupiter.get("sign"),
+                "house": jupiter.get("house"),
+                "retrograde": jupiter.get("retrograde"),
+                "conditions": conditions.get("Jupiter", {}),
+            }
+            if jupiter
+            else None
+        ),
+    }
+
+
 def derive_ketu_context(kundli: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     rahu = next(
         (
@@ -187,6 +336,32 @@ def build_prompt_kundli_context(kundli: Dict[str, Any], user_query: Optional[str
         token in query
         for token in ["yoga", "dosha", "manglik", "raj", "budhaditya", "gajakesari", "dhana", "kaal sarpa", "sade sati"]
     )
+    wants_aspects = any(
+        token in query
+        for token in [
+            "aspect", "aspects", "drishti",
+            "relationship", "relationships", "partner", "spouse",
+            "marriage", "love", "romance", "compatibility",
+            "career", "profession", "job", "work", "business",
+            "health",
+        ]
+    )
+    wants_strength = any(
+        token in query
+        for token in [
+            "exalted", "exaltation", "debilitated", "debilitation",
+            "own sign", "moolatrikona", "combust", "combustion",
+            "benefic", "malefic", "strong", "weak", "strength",
+        ]
+    )
+    wants_children = any(
+        token in query
+        for token in [
+            "child", "children", "kid", "kids", "offspring",
+            "pregnancy", "conceive", "conception", "fertility",
+            "son", "daughter",
+        ]
+    )
 
     current_dasha = kundli.get("current_dasha", {})
     next_mahadasha = find_next_mahadasha(kundli)
@@ -230,6 +405,22 @@ def build_prompt_kundli_context(kundli: Dict[str, Any], user_query: Optional[str
 
     if wants_yoga or not wants_dasha:
         context["yoga_analysis"] = yoga_details
+
+    if wants_aspects:
+        context["vedic_aspects"] = summarize_vedic_aspects(
+            kundli,
+            ["Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn", "Rahu", "Ketu"],
+        )
+
+    if wants_strength:
+        context["planetary_conditions"] = summarize_planetary_conditions(
+            kundli,
+            ["Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn"],
+            user_query=user_query,
+        )
+
+    if wants_children:
+        context["children_analysis"] = summarize_children_context(kundli)
 
     return context
 
@@ -509,6 +700,16 @@ async def chat(request: Request):
             "If asked how a dasha will be, include one short interpretive bullet from the dasha lord's natal placement and relevant yogas or doshas.\n"
             "Treat dasha-lord house/sign context as natal placement only, not house rulership. Rahu and Ketu are placements, not house lords.\n"
             "If asked about yogas or Sade Sati, answer each requested item as present/absent with one evidence line.\n"
+            "If the question is about relationships, marriage, career, health, planetary influence, or drishti, use the relevant Vedic aspects from the provided data explicitly.\n"
+            "When aspects are relevant, mention which planet aspects which house or planet and whether it is a standard or special aspect.\n"
+            "If you mention exalted, debilitated, own-sign, moolatrikona, combust, functional benefic, or functional malefic, never leave it as jargon alone.\n"
+            "Always add one plain-language line explaining what that condition means in this chart and how it may affect the person's experience, strengths, challenges, or outcomes.\n"
+            "Tie that explanation back to the planet's natal sign, house, and role in the chart whenever relevant.\n"
+            "If the question is about children, kids, offspring, pregnancy, or fertility, analyze the 5th house, its lord, Jupiter, occupants, and relevant aspects from the provided data.\n"
+            "For children questions, clearly distinguish between planets aspecting the 5th house and planets aspecting the 5th lord; do not treat those as the same thing.\n"
+            "Only say a planet aspects the 5th house if it appears under the 5th-house aspect data. If it only aspects the 5th lord, say it aspects the 5th lord.\n"
+            "Never say the 12th house is the house of children.\n"
+            "Do not claim an exact number of children unless the provided chart data gives an explicit, defensible numerical indication; otherwise say the chart shows supportive, mixed, or challenging indications and explain why.\n"
             "Answer very concisely in Markdown bullets without tables.\n\n"
             f"User Query: {user_query}\n\n"
             f"Reference Kundli Data:\n{kundli_str}"
