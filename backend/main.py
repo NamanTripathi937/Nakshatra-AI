@@ -25,6 +25,11 @@ from models import SessionData, Message
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("nakshatra-backend")
 
+ZODIAC_SIGNS = [
+    "Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo",
+    "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces",
+]
+
 # ----- Database Lifespan -----
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -82,6 +87,185 @@ def get_kundli(session_id: str) -> Optional[Dict[str, Any]]:
         return _kundli_store.get(session_id)
 
 
+def get_first_name(full_name: Optional[str]) -> str:
+    if not full_name:
+        return "there"
+    cleaned = str(full_name).strip()
+    if not cleaned:
+        return "there"
+    return cleaned.split()[0]
+
+
+def find_next_mahadasha(kundli: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    timeline = kundli.get("vimshottari_dasha", {}).get("mahadashas", [])
+    for idx, maha in enumerate(timeline):
+        if maha.get("is_current"):
+            if idx + 1 < len(timeline):
+                return timeline[idx + 1]
+            return None
+    return None
+
+
+def summarize_planets(kundli: Dict[str, Any], names: list[str]) -> list[Dict[str, Any]]:
+    planets = []
+    for planet in kundli.get("planets", []):
+        if planet.get("name") in names and "error" not in planet:
+            planets.append({
+                "name": planet["name"],
+                "sign": planet["sign"],
+                "house": planet["house"],
+                "retrograde": planet["retrograde"],
+            })
+    return planets
+
+
+def derive_ketu_context(kundli: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    rahu = next(
+        (
+            planet
+            for planet in kundli.get("planets", [])
+            if planet.get("name") in {"TrueNode", "MeanNode"} and "error" not in planet
+        ),
+        None,
+    )
+    if not rahu:
+        return None
+
+    ketu_house = ((int(rahu["house"]) + 5) % 12) + 1
+    ketu_sign_index = ((int(rahu["sign_index"]) + 5) % 12) + 1
+
+    return {
+        "name": "Ketu",
+        "derived_from": rahu["name"],
+        "placement_sign_index": ketu_sign_index,
+        "placement_sign": ZODIAC_SIGNS[ketu_sign_index - 1],
+        "placement_house": ketu_house,
+    }
+
+
+def get_dasha_lord_context(kundli: Dict[str, Any], planet_name: Optional[str]) -> Optional[Dict[str, Any]]:
+    if not planet_name:
+        return None
+    if planet_name == "Ketu":
+        return derive_ketu_context(kundli)
+    if planet_name == "Rahu":
+        return next(
+            (
+                {
+                    "name": "Rahu",
+                    "placement_sign": planet["sign"],
+                    "placement_house": planet["house"],
+                    "retrograde": planet["retrograde"],
+                }
+                for planet in kundli.get("planets", [])
+                if planet.get("name") in {"TrueNode", "MeanNode"} and "error" not in planet
+            ),
+            None,
+        )
+    return next(
+        (
+            {
+                "name": planet["name"],
+                "placement_sign": planet["sign"],
+                "placement_house": planet["house"],
+                "retrograde": planet["retrograde"],
+            }
+            for planet in kundli.get("planets", [])
+            if planet.get("name") == planet_name and "error" not in planet
+        ),
+        None,
+    )
+
+
+def build_prompt_kundli_context(kundli: Dict[str, Any], user_query: Optional[str] = None) -> Dict[str, Any]:
+    query = (user_query or "").lower()
+    wants_dasha = any(
+        token in query
+        for token in ["dasha", "mahadasha", "antardasha", "pratyantardasha", "next", "future", "when", "marriage", "career", "time"]
+    )
+    wants_yoga = any(
+        token in query
+        for token in ["yoga", "dosha", "manglik", "raj", "budhaditya", "gajakesari", "dhana", "kaal sarpa", "sade sati"]
+    )
+
+    current_dasha = kundli.get("current_dasha", {})
+    next_mahadasha = find_next_mahadasha(kundli)
+    yoga_analysis = kundli.get("yoga_analysis", {})
+    yoga_details = {
+        key: value
+        for key, value in yoga_analysis.items()
+        if key not in {"house_lords"}
+    }
+
+    context = {
+        "ascendant": kundli.get("ascendant"),
+        "key_planets": summarize_planets(
+            kundli,
+            ["Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn", "TrueNode"],
+        ),
+    }
+
+    if wants_dasha or not wants_yoga:
+        context["current_dasha"] = current_dasha
+        context["next_mahadasha"] = next_mahadasha
+        context["current_mahadasha_lord_context"] = get_dasha_lord_context(
+            kundli,
+            current_dasha.get("mahadasha", {}).get("planet"),
+        )
+        context["next_mahadasha_lord_context"] = get_dasha_lord_context(
+            kundli,
+            next_mahadasha.get("planet") if next_mahadasha else None,
+        )
+        context["mahadasha_timeline"] = [
+            {
+                "planet": maha.get("planet"),
+                "start": maha.get("start"),
+                "end": maha.get("end"),
+                "is_current": maha.get("is_current", False),
+            }
+            for maha in kundli.get("vimshottari_dasha", {}).get("mahadashas", [])
+        ]
+        if next_mahadasha:
+            context["next_mahadasha_antardashas"] = next_mahadasha.get("antardashas", [])
+
+    if wants_yoga or not wants_dasha:
+        context["yoga_analysis"] = yoga_details
+
+    return context
+
+
+def build_first_message_context(kundli: Dict[str, Any], profile: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    profile = profile or {}
+    yoga_analysis = kundli.get("yoga_analysis", {})
+    strong_yogas = list(yoga_analysis.get("detected", []))
+    conditional_yogas = list(yoga_analysis.get("conditional_detected", []))
+
+    return {
+        "name": profile.get("full_name"),
+        "first_name": get_first_name(profile.get("full_name")),
+        "birth_context": {
+            "local_datetime": kundli.get("input", {}).get("local_datetime"),
+            "timezone": kundli.get("input", {}).get("timezone"),
+            "latitude": kundli.get("input", {}).get("latitude"),
+            "longitude": kundli.get("input", {}).get("longitude"),
+        },
+        "ascendant": kundli.get("ascendant"),
+        "current_dasha": kundli.get("current_dasha"),
+        "key_planets": summarize_planets(
+            kundli,
+            ["Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn", "TrueNode"],
+        ),
+        "strong_yogas": {
+            key: yoga_analysis.get(key)
+            for key in strong_yogas
+        },
+        "conditional_yogas": {
+            key: yoga_analysis.get(key)
+            for key in conditional_yogas
+        },
+    }
+
+
 def create_chain_for_session(session_id: str) -> ConversationChain:
     memory = ConversationBufferMemory(llm=llm, return_messages=True, max_token_limit=800)
     chain = ConversationChain(llm=llm, memory=memory, verbose=False)
@@ -109,25 +293,48 @@ def get_or_create_chain(session_id: str) -> ConversationChain:
 
 
 # ----- Helper to build the LLM prompt summary for kundli -----
-def build_kundli_prompt(kundli: Dict[str, Any], today: datetime) -> str:
+def build_kundli_prompt(kundli: Dict[str, Any], profile: Optional[Dict[str, Any]], today: datetime) -> str:
     core_rules = (
-        "You are an expert 'VEDIC' astrologer with full access to the user's Kundli data . Do not use western terminologies "
-        "(including planetary placements and Vimsottari Dasha timeline).\n\n"
+        "You are writing the very first message inside Nakshatra AI after a user submits birth details.\n"
+        "You are an expert Vedic astrologer. Use only the provided chart data. Do not use western terminology.\n\n"
         "### Core Rules\n"
-        "1. NEVER ask the user for birth details (they are already included) Output in clean Markdown;.\n"
+        "1. NEVER ask for birth details. They are already available.\n"
         "2. DO NOT recalculate Mahadasha or Antardasha. Use the given data only.\n"
-        "3. For personality/tendencies use planetary placements; for time-based queries use dashas.\n"
-        "4. RESPOND VERY CONCISELY and only include major insights.\n"
-        "5. OUTPUT FORMAT (MUST follow exactly):\n"
-        "   - First line: single-sentence summary (<= 30 words).\n"
-        "   - Then up to 5 bullet points (each <= 15 words).\n"
-        "   - No extra explanation, no tables, no questions back to the user.\n"
-        "6. Absolute max length: 80 words.\n\n"
+        "3. This message should feel premium, insightful, human, and welcoming, not like a raw placement dump.\n"
+        "4. Focus on what is special about the chart: public aura, hidden emotional layer, promise/potential, and the current dasha chapter.\n"
+        "5. Mention only 3 to 4 chart signatures that are genuinely the most compelling.\n"
+        "6. If a yoga is strong, present it confidently in plain language. If a yoga is conditional, mention it only with nuance.\n"
+        "7. Use crisp, premium Markdown formatting with bold headers and tasteful emojis. No tables.\n"
+        "8. End with one warm, concise prompt inviting the user to choose one of: career, relationships, or deeper purpose.\n"
+        "9. Target length: 180 to 260 words.\n\n"
+        "### Output Format (must follow this structure)\n"
+        "## 🌌 Welcome to your Nakshatra AI reading, {first_name}\n"
+        "A short 2-sentence opening that captures the user's chart essence.\n"
+        "### ✨ **What stands out in your chart**\n"
+        "One short paragraph.\n"
+        "### 🌙 **Your hidden strength**\n"
+        "One short paragraph.\n"
+        "### 💠 **The promise in this chart**\n"
+        "One short paragraph.\n"
+        "### 🔮 **Your current chapter**\n"
+        "One short paragraph using the current dasha.\n"
+        "Final line: a single warm question offering career, relationships, or purpose, with 1 to 3 tasteful emojis.\n\n"
+        "### Style Guidance\n"
+        "- Sound insightful, specific, and elegant.\n"
+        "- Translate astrological combinations into lived experience.\n"
+        "- Avoid sounding mechanical, generic, or overly mystical.\n"
+        "- Do not overstate weak combinations as certainties.\n\n"
+        "- Use bold emphasis for 1 to 2 key phrases in each section.\n"
+        "- Make the message feel visually rich and easy to scan.\n"
+        "- Emojis should feel refined, not loud or gimmicky.\n\n"
     )
 
     prompt = f"""{core_rules}
-### Kundli Data
-{json.dumps(kundli, indent=2)}
+### User Profile
+{json.dumps({"full_name": (profile or {}).get("full_name"), "first_name": get_first_name((profile or {}).get("full_name"))}, indent=2)}
+
+### Chart Context
+{json.dumps(build_first_message_context(kundli, profile), indent=2)}
 
 ### Today's Context
 Date: {today.strftime('%Y-%m-%d')}
@@ -164,7 +371,7 @@ async def kundli(request: Request):
 
     # Generate the kundli (your generate_chart or get_kundli_data wrapper)
     try:
-        kundli = generate_chart(payload, house_system="WS")
+        kundli = json.loads(generate_chart(payload, house_system="WS"))
     except Exception:
         logger.exception("Failed to generate kundli")
         raise HTTPException(status_code=500, detail="Failed to generate kundli")
@@ -211,7 +418,10 @@ async def kundli(request: Request):
     # Create or get the conversation chain for this session and add kundli as a system message in its memory
     chain = get_or_create_chain(session_id)
     try:
-        intro = f"This is the user's Kundli data for reference during the chat:\n{json.dumps(kundli)}"
+        intro = (
+            "This is the user's condensed Kundli data for reference during the chat:\n"
+            f"{json.dumps(build_prompt_kundli_context(kundli), ensure_ascii=False)}"
+        )
         # Add a system-style message into the session's memory so the chain can use it later
         # Use SystemMessage so it's distinguishable in memory
         chain.memory.chat_memory.add_user_message("My birth details")
@@ -222,14 +432,18 @@ async def kundli(request: Request):
 
     # Optionally produce a short LLM summary of the kundli to return to the frontend
     try:
-        prompt = build_kundli_prompt(kundli, datetime.now())
+        prompt = build_kundli_prompt(
+            kundli,
+            {"full_name": payload.get("fullName")},
+            datetime.now(),
+        )
         llm_resp = llm.invoke(prompt)
         summary_text = getattr(llm_resp, "content", str(llm_resp)).strip()
     except Exception:
         logger.exception("LLM invoke failed for kundli summary; returning kundli without summary")
         summary_text = None
 
-    return JSONResponse(content={"response": llm_resp.content.strip()})
+    return JSONResponse(content={"response": summary_text or "Kundli generated successfully."})
 
 
 @app.post("/chat")
@@ -285,10 +499,19 @@ async def chat(request: Request):
     # append kundli if available for the session (keep a compact snippet)
     kundli = get_kundli(session_id)
     if kundli:
-        # Attach kundli JSON as compact string to control token usage
-        kundli_str = json.dumps(kundli)
+        prompt_kundli = build_prompt_kundli_context(kundli, user_query)
+        kundli_str = json.dumps(prompt_kundli, ensure_ascii=False)
         final_input = (
-            f"User Query: {user_query}\n\n### Answer very concisely in points without tables; Reference Kundli Data:\n{kundli_str}"
+            "You are an expert Vedic astrologer. Use only the provided Kundli data.\n"
+            "Do not invent dates, dashas, yogas, or transits.\n"
+            "For timing questions, cite exact dasha dates from the provided data.\n"
+            "Only mention durations or extra timing if they are explicitly present in the provided data or directly implied by the exact start/end dates.\n"
+            "If asked how a dasha will be, include one short interpretive bullet from the dasha lord's natal placement and relevant yogas or doshas.\n"
+            "Treat dasha-lord house/sign context as natal placement only, not house rulership. Rahu and Ketu are placements, not house lords.\n"
+            "If asked about yogas or Sade Sati, answer each requested item as present/absent with one evidence line.\n"
+            "Answer very concisely in Markdown bullets without tables.\n\n"
+            f"User Query: {user_query}\n\n"
+            f"Reference Kundli Data:\n{kundli_str}"
         )
     else:
         final_input = user_query
@@ -335,7 +558,3 @@ if __name__ == "__main__":
 # Mac
 # python3 -m venv venv
 # source venv/bin/activate
-
-
-
-
