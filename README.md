@@ -62,7 +62,6 @@ Create `.env` file in `backend/`:
 ```env
 GROQ_API_KEY=your_groq_api_key_here
 MONGODB_URI=mongodb://localhost:27017/
-LLM_PROVIDER=groq
 ```
 
 Create `.env.local` file in `frontend/`:

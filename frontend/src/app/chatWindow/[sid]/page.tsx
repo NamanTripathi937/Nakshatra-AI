@@ -8,13 +8,9 @@ import { Textarea } from "@/components/ui/textarea"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Send } from "lucide-react"
 import AIMessage from './components/AImessage'
-import { loadMessagesForSession, messagesKeyForSession, saveMessagesForSession } from "@/lib/utils"
+import { getBackendUrl, loadMessagesForSession, messagesKeyForSession, saveMessagesForSession } from "@/lib/utils"
 import { useParams } from "next/navigation"
 
-type SessionPayload = {
-  createdAt?: number;
-  messages?: Array<{ id: string; role: string; text: string; createdAt?: number }>;
-};
 interface Message {
   id: string
   content: string
@@ -35,7 +31,7 @@ function getFriendlyChatErrorMessage(error: unknown): string {
 export default function ChatComponent() {
   const params = useParams();
   const sid = (params && (params as any).sid) ?? ""; 
-  // const [session, setSession] = useState<SessionPayload | null>(null);
+  const backendUrl = getBackendUrl();
   const [messages, setMessages] = useState<Message[]>([])
   const [inputMessage, setInputMessage] = useState("")
   const scrollAreaRef = useRef<HTMLDivElement>(null)
@@ -202,7 +198,7 @@ export default function ChatComponent() {
         const timeout = setTimeout(() => controller.abort(), CHAT_TIMEOUT_MS)
 
         const res = await Promise.race([
-          fetch("/api/chat", {
+          fetch(`${backendUrl}/chat`, {
             method: "POST",
             headers: { "Content-Type": "application/json", "X-Session-Id": sid },
             body: JSON.stringify({ query: newMessage }),

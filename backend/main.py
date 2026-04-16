@@ -75,6 +75,14 @@ llm = ChatGroq(
     max_retries=3,
 )
 
+repair_llm = ChatGroq(
+    model="openai/gpt-oss-20B",
+    api_key=GROQ_API_KEY,
+    max_tokens=220,
+    timeout=90,
+    max_retries=2,
+)
+
 # ----- Per-session stores (thread-safe) -----
 _kundli_store: Dict[str, Dict[str, Any]] = {}
 _kundli_lock = Lock()
@@ -157,6 +165,95 @@ def build_response_style_instructions(user_query: Optional[str] = None, is_first
     )
 
 
+def infer_question_focus(user_query: Optional[str]) -> Dict[str, Any]:
+    query = (user_query or "").lower()
+    topic = "general"
+    relevant_houses = [1]
+    relevant_karakas = ["Lagna lord", "Moon", "Sun"]
+    supporting_charts: list[str] = []
+    remedies_relevant = False
+    timing_focus = any(token in query for token in ["when", "timing", "time", "period", "dasha"])
+
+    if any(token in query for token in ["marriage", "spouse", "wife", "husband", "partner", "relationship", "love", "romance"]):
+        topic = "marriage_relationships"
+        relevant_houses = [1, 5, 7, 8, 12]
+        relevant_karakas = ["Venus", "Jupiter", "Moon", "7th lord"]
+        supporting_charts = ["D9"]
+        remedies_relevant = True
+        timing_focus = True
+    elif any(token in query for token in ["career", "profession", "job", "work", "business", "promotion", "status"]):
+        topic = "career"
+        relevant_houses = [1, 2, 6, 10, 11]
+        relevant_karakas = ["Sun", "Saturn", "Mercury", "10th lord"]
+        supporting_charts = ["D10"]
+        remedies_relevant = True
+        timing_focus = True
+    elif any(token in query for token in ["child", "children", "kid", "kids", "offspring", "pregnancy", "fertility", "son", "daughter"]):
+        topic = "children"
+        relevant_houses = [2, 5, 9, 11]
+        relevant_karakas = ["Jupiter", "Moon", "5th lord"]
+        remedies_relevant = True
+    elif any(token in query for token in ["sibling", "siblings", "brother", "brothers", "sister", "sisters"]):
+        topic = "siblings"
+        relevant_houses = [3, 11]
+        relevant_karakas = ["Mercury", "Mars", "3rd lord", "11th lord"]
+    elif any(token in query for token in ["money", "wealth", "finance", "income", "rich", "prosperity"]):
+        topic = "wealth"
+        relevant_houses = [2, 5, 9, 11]
+        relevant_karakas = ["Jupiter", "Venus", "2nd lord", "11th lord"]
+        remedies_relevant = True
+    elif any(token in query for token in ["health", "disease", "illness", "body", "hospital"]):
+        topic = "health"
+        relevant_houses = [1, 6, 8, 12]
+        relevant_karakas = ["Sun", "Moon", "Mars", "Saturn", "6th lord"]
+        remedies_relevant = True
+    elif any(token in query for token in ["sensual", "sexual", "intimacy", "passion"]):
+        topic = "sensuality_intimacy"
+        relevant_houses = [1, 5, 7, 8, 12]
+        relevant_karakas = ["Venus", "Mars", "Moon"]
+        supporting_charts = ["D9"]
+    elif any(token in query for token in ["death", "longevity", "end of life"]):
+        topic = "longevity_sensitive"
+        relevant_houses = [1, 3, 8]
+        relevant_karakas = ["Saturn", "8th lord"]
+
+    return {
+        "topic": topic,
+        "relevant_houses": relevant_houses,
+        "relevant_karakas": relevant_karakas,
+        "supporting_charts": supporting_charts,
+        "timing_focus": timing_focus,
+        "remedies_relevant": remedies_relevant,
+    }
+
+
+def build_astrology_reasoning_framework(user_query: Optional[str] = None, is_first_message: bool = False) -> str:
+    if is_first_message:
+        return (
+            "### Jyotish Reading Method\n"
+            "1. Start from Lagna, Lagna lord, and Janma Nakshatra to establish the chart's core pattern.\n"
+            "2. Highlight only the most important placements, yogas, and strengths that define the person.\n"
+            "3. Translate technical combinations into lived personality, emotional pattern, promise, and life direction.\n"
+            "4. Use the current dasha as the present life chapter.\n"
+            "5. Keep the reading elegant, welcoming, and selective rather than exhaustive.\n"
+        )
+
+    focus = infer_question_focus(user_query)
+    return (
+        "### Astrological Reasoning Framework\n"
+        "You are a seasoned Vedic astrologer (Jyotishi) reasoning step by step from the chart.\n"
+        "1. Begin with Lagna and the Lagna lord to establish the person's baseline nature and life pattern.\n"
+        f"2. For this question, prioritize houses {focus['relevant_houses']} and the key significators {focus['relevant_karakas']}.\n"
+        "3. Judge each relevant house through: the house itself, its lord, planets occupying it, aspects, dignity, combustion, functional nature, and yogas.\n"
+        "4. If divisional chart data is provided for this topic, use it as supporting evidence, never as a replacement for the natal chart.\n"
+        "5. Use Vimshottari dasha for timing. When timing is supported, give clear windows from the provided dates. Do not invent dates.\n"
+        "6. Every conclusion should be tied back to concrete chart evidence.\n"
+        "7. If the chart is mixed, say the result is mixed and explain why instead of forcing certainty.\n"
+        "8. When the topic naturally calls for help or correction, end with practical Vedic remedies.\n"
+        f"9. Topic metadata: {json.dumps(focus, ensure_ascii=False)}\n"
+    )
+
+
 def response_looks_incomplete(text: str) -> bool:
     stripped = (text or "").rstrip()
     if not stripped:
@@ -168,25 +265,52 @@ def response_looks_incomplete(text: str) -> bool:
     return stripped[-1].isalnum()
 
 
-def complete_if_truncated(response_text: str) -> str:
-    if not response_looks_incomplete(response_text):
-        return response_text
+def merge_continuation_text(response_text: str, continuation_text: str) -> str:
+    base = (response_text or "").rstrip()
+    addition = (continuation_text or "").lstrip()
+    if not base or not addition:
+        return base or addition
 
-    try:
-        continuation = llm.invoke(
-            (
-                "Continue the following astrology answer naturally from exactly where it stopped.\n"
-                "Do not restart, do not repeat earlier points, and do not add meta commentary.\n"
-                "Finish the incomplete sentence and, if needed, add one brief concluding sentence only.\n\n"
-                f"Partial answer:\n{response_text}"
+    max_overlap = min(len(base), len(addition), 40)
+    overlap = 0
+    for size in range(max_overlap, 0, -1):
+        if base[-size:] == addition[:size]:
+            overlap = size
+            break
+
+    if overlap:
+        return f"{base}{addition[overlap:]}"
+
+    if base[-1].isalnum() and addition[0].isalnum():
+        return f"{base}{addition}"
+
+    return f"{base} {addition}"
+
+
+def complete_if_truncated(response_text: str) -> str:
+    completed = response_text
+    for _ in range(2):
+        if not response_looks_incomplete(completed):
+            return completed
+
+        try:
+            continuation = repair_llm.invoke(
+                (
+                    "Continue the following astrology answer naturally from exactly where it stopped.\n"
+                    "Do not restart, do not repeat earlier points, and do not add meta commentary.\n"
+                    "If the text was cut in the middle of a word, start with only the missing remainder of that word.\n"
+                    "Finish the incomplete sentence and, if needed, add one brief concluding sentence only.\n\n"
+                    f"Partial answer:\n{completed}"
+                )
             )
-        )
-        continuation_text = getattr(continuation, "content", str(continuation)).strip()
-        if continuation_text:
-            return f"{response_text.rstrip()} {continuation_text.lstrip()}"
-    except Exception:
-        logger.exception("Failed to complete truncated response")
-    return response_text
+            continuation_text = getattr(continuation, "content", str(continuation)).strip()
+            if not continuation_text:
+                return completed
+            completed = merge_continuation_text(completed, continuation_text)
+        except Exception:
+            logger.exception("Failed to complete truncated response")
+            return completed
+    return completed
 
 
 def find_next_mahadasha(kundli: Dict[str, Any]) -> Optional[Dict[str, Any]]:
@@ -604,6 +728,7 @@ def build_prompt_kundli_context(kundli: Dict[str, Any], user_query: Optional[str
     context = {
         "ascendant": kundli.get("ascendant"),
         "janma_nakshatra": kundli.get("janma_nakshatra"),
+        "question_focus": infer_question_focus(user_query),
         "key_planets": summarize_planets(
             kundli,
             ["Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn", "TrueNode"],
@@ -736,14 +861,15 @@ def get_or_create_chain(session_id: str) -> ConversationChain:
 # ----- Helper to build the LLM prompt summary for kundli -----
 def build_kundli_prompt(kundli: Dict[str, Any], profile: Optional[Dict[str, Any]], today: datetime) -> str:
     response_style = build_response_style_instructions(is_first_message=True)
+    reasoning_framework = build_astrology_reasoning_framework(is_first_message=True)
     core_rules = (
         "You are writing the very first message inside Nakshatra AI after a user submits birth details.\n"
-        "You are an expert Vedic astrologer. Use only the provided chart data. Do not use western terminology.\n\n"
+        "You are a master Vedic astrologer (Jyotishi) with decades of practice. Use only the provided chart data. Do not use western terminology.\n\n"
         "### Core Rules\n"
         "1. NEVER ask for birth details. They are already available.\n"
         "2. DO NOT recalculate Mahadasha or Antardasha. Use the given data only.\n"
         "3. This message should feel premium, insightful, human, and welcoming, not like a raw placement dump.\n"
-        "4. Focus on what is special about the chart: public aura, hidden emotional layer, promise/potential, and the current dasha chapter.\n"
+        "4. Focus on what is special about the chart: baseline nature, hidden emotional layer, promise/potential, and the current dasha chapter.\n"
         "5. Mention only 3 to 4 chart signatures that are genuinely the most compelling.\n"
         "6. If a yoga is strong, present it confidently in plain language. If a yoga is conditional, mention it only with nuance.\n"
         "7. Use crisp, premium Markdown formatting with bold headers and tasteful emojis. No tables.\n"
@@ -772,6 +898,7 @@ def build_kundli_prompt(kundli: Dict[str, Any], profile: Optional[Dict[str, Any]
     )
 
     prompt = f"""{core_rules}
+{reasoning_framework}
 {response_style}
 
 ### User Profile
@@ -883,6 +1010,7 @@ async def kundli(request: Request):
         )
         llm_resp = llm.invoke(prompt)
         summary_text = getattr(llm_resp, "content", str(llm_resp)).strip()
+        summary_text = complete_if_truncated(summary_text)
     except Exception:
         logger.exception("LLM invoke failed for kundli summary; returning kundli without summary")
         summary_text = None
@@ -946,30 +1074,31 @@ async def chat(request: Request):
         prompt_kundli = build_prompt_kundli_context(kundli, user_query)
         kundli_str = json.dumps(prompt_kundli, ensure_ascii=False)
         response_style = build_response_style_instructions(user_query=user_query)
+        reasoning_framework = build_astrology_reasoning_framework(user_query=user_query)
         final_input = (
-            "You are an expert Vedic astrologer. Use only the provided Kundli data.\n"
-            "Do not invent dates, dashas, yogas, or transits.\n"
-            "For timing questions, cite exact dasha dates from the provided data.\n"
-            "Only mention durations or extra timing if they are explicitly present in the provided data or directly implied by the exact start/end dates.\n"
-            "If asked how a dasha will be, include one short interpretive bullet from the dasha lord's natal placement and relevant yogas or doshas.\n"
-            "Treat dasha-lord house/sign context as natal placement only, not house rulership. Rahu and Ketu are placements, not house lords.\n"
-            "If asked about yogas or Sade Sati, answer each requested item as present/absent with one evidence line.\n"
-            "If the question is about relationships, marriage, career, health, planetary influence, or drishti, use the relevant Vedic aspects from the provided data explicitly.\n"
-            "If Navamsha (D9) data is provided and the question is about marriage, spouse, partner, love, or relationship patterns, use D9 as a supporting chart for spouse character, married life, and dharma, while keeping the natal chart primary.\n"
-            "If Dashamsha (D10) data is provided and the question is about career, profession, work, business, status, or public role, use D10 as a supporting chart for professional direction and public-life themes, while keeping the natal chart primary.\n"
-            "When aspects are relevant, mention which planet aspects which house or planet and whether it is a standard or special aspect.\n"
-            "If you mention exalted, debilitated, own-sign, moolatrikona, combust, functional benefic, or functional malefic, never leave it as jargon alone.\n"
-            "Always add one plain-language line explaining what that condition means in this chart and how it may affect the person's experience, strengths, challenges, or outcomes.\n"
-            "Tie that explanation back to the planet's natal sign, house, and role in the chart whenever relevant.\n"
-            "If the question is about children, kids, offspring, pregnancy, or fertility, analyze the 5th house, its lord, Jupiter, occupants, and relevant aspects from the provided data.\n"
-            "For children questions, clearly distinguish between planets aspecting the 5th house and planets aspecting the 5th lord; do not treat those as the same thing.\n"
-            "Only say a planet aspects the 5th house if it appears under the 5th-house aspect data. If it only aspects the 5th lord, say it aspects the 5th lord.\n"
-            "Never say the 12th house is the house of children.\n"
-            "Do not claim an exact number of children unless the provided chart data gives an explicit, defensible numerical indication; otherwise say the chart shows supportive, mixed, or challenging indications and explain why.\n"
-            "If the question is about siblings, brothers, or sisters, analyze the 3rd house for younger siblings, the 11th house for elder siblings, their lords, occupants, and relevant aspects from the provided data.\n"
-            "Do not describe the 5th house as the sibling house.\n"
-            "If sibling indications are mixed, say so clearly instead of forcing certainty.\n"
-            "Use Markdown and make the response readable and complete. No tables.\n\n"
+            "You are a master Vedic astrologer (Jyotishi) with decades of practical experience.\n"
+            "Use only the provided Kundli data. Do not invent dates, dashas, yogas, transits, remedies, or chart facts.\n\n"
+            f"{reasoning_framework}\n"
+            "### Non-Negotiable Rules\n"
+            "1. Treat the natal chart as primary.\n"
+            "2. Use D9 only as supporting evidence for marriage/spouse/dharma questions when it is provided.\n"
+            "3. Use D10 only as supporting evidence for career/profession/public-role questions when it is provided.\n"
+            "4. For timing questions, cite exact dasha dates from the provided data and give concrete windows only when the data supports them.\n"
+            "5. Treat dasha-lord sign and house as natal placement, not house rulership. Rahu and Ketu are placements, not house lords.\n"
+            "6. When aspects are relevant, explicitly name which planet aspects which house or planet and whether it is a standard or special aspect.\n"
+            "7. If you mention exalted, debilitated, own-sign, moolatrikona, combust, functional benefic, or functional malefic, explain plainly what that means in this person's life.\n"
+            "8. For children questions, use the 5th house, 5th lord, Jupiter, occupants, and relevant aspects. Never call the 12th house the house of children.\n"
+            "9. For siblings questions, use the 3rd house for younger siblings and the 11th for elder siblings. Never call the 5th house the sibling house.\n"
+            "10. If the chart is mixed, say the result is mixed. Do not pretend weak evidence is certain.\n"
+            "11. Do not answer requests for death prediction, cause of death, or exact death timing. Briefly refuse and offer safer guidance such as health, longevity habits, or difficult periods instead.\n\n"
+            "### Response Style\n"
+            "- Sound like a skilled astrologer, not a hesitant chatbot.\n"
+            "- Be specific and evidence-based: prefer 'the chart strongly shows' over vague hedging.\n"
+            "- Connect every important conclusion back to house, lord, planet, aspect, yoga, dasha, or divisional-chart evidence.\n"
+            "- If the user asks for detail, go deep and structured rather than becoming repetitive.\n"
+            "- When the question naturally involves obstacles, delay, emotional strain, or a desire for improvement, end with 2 to 4 actionable Vedic remedies such as mantra, charity, fasting, worship, or discipline-based practices.\n"
+            "- Mention gemstones only when the chart support is clear and the recommendation is not reckless.\n"
+            "- Use Markdown and make the answer readable and complete. No tables.\n\n"
             f"{response_style}\n"
             f"User Query: {user_query}\n\n"
             f"Reference Kundli Data:\n{kundli_str}"

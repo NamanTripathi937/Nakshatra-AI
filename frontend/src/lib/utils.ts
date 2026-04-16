@@ -10,6 +10,11 @@ export function cn(...inputs: ClassValue[]) {
 
 export const SESSION_KEY = "nakshatra_session_id";
 
+export function getBackendUrl(): string {
+  const url = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
+  return url.replace(/\/+$/, "");
+}
+
 /** Generate a new session ID without checking storage. */
 export function generateNewSessionId(): string {
   return (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function")
