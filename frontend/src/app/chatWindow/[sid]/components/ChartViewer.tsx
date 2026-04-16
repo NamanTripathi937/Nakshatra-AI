@@ -40,6 +40,51 @@ type ChartResponse = {
   details: ChartPlanetDetail[]
 }
 
+type GemstoneRemedy = {
+  planet: string
+  gemstone: string
+  recommendation: string
+  why: string
+  caution: string
+}
+
+type MantraRemedy = {
+  planet: string
+  mantra: string
+  practice: string
+  why: string
+}
+
+type FastingRemedy = {
+  planet: string
+  day: string
+  practice: string
+  why: string
+}
+
+type CharityRemedy = {
+  planet: string
+  recommendation: string
+  why: string
+}
+
+type RudrakshaRemedy = {
+  planet: string
+  rudraksha: string
+  recommendation: string
+  why: string
+}
+
+type RemediesResponse = {
+  overview: string
+  gemstones: GemstoneRemedy[]
+  mantras: MantraRemedy[]
+  fasting: FastingRemedy[]
+  charity: CharityRemedy[]
+  rudraksha: RudrakshaRemedy[]
+  notes: string[]
+}
+
 const CHART_OPTIONS = [
   { code: "D1", label: "Lagna / Rasi" },
   { code: "D9", label: "Navamsha" },
@@ -100,6 +145,14 @@ function getInfluenceLabel(influence: ChartPlanetDetail["influence"]) {
   return "Mixed"
 }
 
+function renderEmptyRemedyState() {
+  return (
+    <div className="rounded-2xl border border-white/8 bg-slate-950/50 px-3 py-3 text-xs text-slate-500">
+      No strong remedy signal is standing out here.
+    </div>
+  )
+}
+
 function insightKey(chartCode: string, planetName: string) {
   return `${chartCode}-${planetName}`
 }
@@ -114,6 +167,9 @@ export default function ChartViewer({
   const [cache, setCache] = React.useState<Record<string, ChartResponse>>({})
   const [loading, setLoading] = React.useState(false)
   const [error, setError] = React.useState("")
+  const [remedies, setRemedies] = React.useState<RemediesResponse | null>(null)
+  const [remediesLoading, setRemediesLoading] = React.useState(false)
+  const [remediesError, setRemediesError] = React.useState("")
   const [expandedInsights, setExpandedInsights] = React.useState<Record<string, boolean>>({})
   const planetRowRefs = React.useRef<Record<string, HTMLDivElement | null>>({})
   const visibleCharts = CHART_OPTIONS.map((option) => cache[cacheKey(option.code, style)]).filter(
@@ -153,6 +209,58 @@ export default function ChartViewer({
     },
     [openInsightAndScroll]
   )
+
+  React.useEffect(() => {
+    setRemedies(null)
+    setRemediesError("")
+  }, [sessionId])
+
+  React.useEffect(() => {
+    if (!open || !sessionId || remedies) return
+
+    let isCancelled = false
+
+    async function loadRemedies() {
+      setRemediesLoading(true)
+      setRemediesError("")
+      try {
+        const res = await fetch(`${backendUrl}/remedies`, {
+          headers: {
+            "X-Session-Id": sessionId,
+          },
+        })
+
+        if (!res.ok) {
+          let message = "Failed to load remedies."
+          try {
+            const data = await res.json()
+            message = data?.detail || data?.error || message
+          } catch {
+            // ignore JSON parse failure and keep default message
+          }
+          throw new Error(message)
+        }
+
+        const data: RemediesResponse = await res.json()
+        if (!isCancelled) {
+          setRemedies(data)
+        }
+      } catch (err) {
+        if (!isCancelled) {
+          setRemediesError(err instanceof Error ? err.message : "Failed to load remedies.")
+        }
+      } finally {
+        if (!isCancelled) {
+          setRemediesLoading(false)
+        }
+      }
+    }
+
+    loadRemedies()
+    return () => {
+      isCancelled = true
+    }
+  }, [backendUrl, open, remedies, sessionId])
 
   React.useEffect(() => {
     if (!open || !sessionId) return
@@ -404,6 +512,112 @@ export default function ChartViewer({
                     </section>
                   ))}
                 </div>
+                <section className="mt-6 rounded-3xl border border-emerald-400/15 bg-[radial-gradient(circle_at_top,_rgba(16,185,129,0.12),_rgba(15,23,42,0.96)_60%)] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+                  <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <h3 className="text-lg font-semibold text-white">Personalized Remedies</h3>
+                      <p className="text-sm text-slate-400">
+                        Rule-based remedies derived from weak supportive planets and afflicted natal placements.
+                      </p>
+                    </div>
+                  </div>
+
+                  {remediesLoading && !remedies ? (
+                    <div className="flex min-h-[180px] items-center justify-center text-slate-300">
+                      <Loader2 className="mr-3 h-5 w-5 animate-spin" />
+                      Preparing remedies...
+                    </div>
+                  ) : remediesError && !remedies ? (
+                    <div className="rounded-2xl border border-rose-400/20 bg-rose-500/8 px-4 py-3 text-sm text-rose-200">
+                      {remediesError}
+                    </div>
+                  ) : remedies ? (
+                    <>
+                      <p className="mb-4 max-w-4xl text-sm leading-6 text-slate-300">{remedies.overview}</p>
+                      <div className="grid gap-4 xl:grid-cols-2">
+                        <div className="rounded-2xl border border-white/8 bg-slate-950/58 p-4">
+                          <div className="mb-3 text-sm font-semibold text-white">Gemstones</div>
+                          <div className="grid gap-3">
+                            {remedies.gemstones.length ? remedies.gemstones.map((item) => (
+                              <div key={`gem-${item.planet}`} className="rounded-2xl border border-white/8 bg-white/[0.03] p-3">
+                                <div className="text-sm font-medium text-white">{item.gemstone} for {item.planet}</div>
+                                <div className="mt-1 text-xs leading-5 text-slate-300">{item.why}</div>
+                                <div className="mt-2 text-xs text-cyan-200">{item.recommendation}</div>
+                                <div className="mt-2 text-[11px] text-amber-200">{item.caution}</div>
+                              </div>
+                            )) : renderEmptyRemedyState()}
+                          </div>
+                        </div>
+
+                        <div className="rounded-2xl border border-white/8 bg-slate-950/58 p-4">
+                          <div className="mb-3 text-sm font-semibold text-white">Mantras</div>
+                          <div className="grid gap-3">
+                            {remedies.mantras.length ? remedies.mantras.map((item) => (
+                              <div key={`mantra-${item.planet}`} className="rounded-2xl border border-white/8 bg-white/[0.03] p-3">
+                                <div className="text-sm font-medium text-white">{item.planet}</div>
+                                <div className="mt-1 text-xs font-medium text-cyan-200">{item.mantra}</div>
+                                <div className="mt-2 text-xs leading-5 text-slate-300">{item.why}</div>
+                                <div className="mt-2 text-[11px] text-slate-400">{item.practice}</div>
+                              </div>
+                            )) : renderEmptyRemedyState()}
+                          </div>
+                        </div>
+
+                        <div className="rounded-2xl border border-white/8 bg-slate-950/58 p-4">
+                          <div className="mb-3 text-sm font-semibold text-white">Fasting Days</div>
+                          <div className="grid gap-3">
+                            {remedies.fasting.length ? remedies.fasting.map((item) => (
+                              <div key={`fast-${item.planet}`} className="rounded-2xl border border-white/8 bg-white/[0.03] p-3">
+                                <div className="text-sm font-medium text-white">{item.day} for {item.planet}</div>
+                                <div className="mt-1 text-xs leading-5 text-slate-300">{item.why}</div>
+                                <div className="mt-2 text-[11px] text-slate-400">{item.practice}</div>
+                              </div>
+                            )) : renderEmptyRemedyState()}
+                          </div>
+                        </div>
+
+                        <div className="rounded-2xl border border-white/8 bg-slate-950/58 p-4">
+                          <div className="mb-3 text-sm font-semibold text-white">Charity</div>
+                          <div className="grid gap-3">
+                            {remedies.charity.length ? remedies.charity.map((item) => (
+                              <div key={`charity-${item.planet}`} className="rounded-2xl border border-white/8 bg-white/[0.03] p-3">
+                                <div className="text-sm font-medium text-white">{item.planet}</div>
+                                <div className="mt-1 text-xs leading-5 text-slate-300">{item.why}</div>
+                                <div className="mt-2 text-[11px] text-slate-400">{item.recommendation}</div>
+                              </div>
+                            )) : renderEmptyRemedyState()}
+                          </div>
+                        </div>
+
+                        <div className="rounded-2xl border border-white/8 bg-slate-950/58 p-4 xl:col-span-2">
+                          <div className="mb-3 text-sm font-semibold text-white">Rudraksha</div>
+                          <div className="grid gap-3 md:grid-cols-2">
+                            {remedies.rudraksha.length ? remedies.rudraksha.map((item) => (
+                              <div key={`rudraksha-${item.planet}`} className="rounded-2xl border border-white/8 bg-white/[0.03] p-3">
+                                <div className="text-sm font-medium text-white">{item.rudraksha} for {item.planet}</div>
+                                <div className="mt-1 text-xs leading-5 text-slate-300">{item.why}</div>
+                                <div className="mt-2 text-[11px] text-slate-400">{item.recommendation}</div>
+                              </div>
+                            )) : renderEmptyRemedyState()}
+                          </div>
+                        </div>
+                      </div>
+
+                      {remedies.notes.length ? (
+                        <div className="mt-4 grid gap-2">
+                          {remedies.notes.map((note, index) => (
+                            <div
+                              key={`remedy-note-${index}`}
+                              className="rounded-2xl border border-white/8 bg-slate-950/50 px-4 py-3 text-xs leading-5 text-slate-300"
+                            >
+                              {note}
+                            </div>
+                          ))}
+                        </div>
+                      ) : null}
+                    </>
+                  ) : null}
+                </section>
                 {loading ? (
                   <div className="mt-4 flex items-center justify-center text-xs text-slate-400">
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />

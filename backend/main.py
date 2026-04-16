@@ -143,6 +143,214 @@ PLANET_SHORT_SYMBOLS = {
     "Ketu": "Ke",
 }
 
+ASHTAKOOT_VARNA_POINTS = [
+    [1, 0, 0, 0],
+    [1, 1, 0, 0],
+    [1, 1, 1, 0],
+    [1, 1, 1, 1],
+]
+
+ASHTAKOOT_VASHYA_POINTS = [
+    [2, 0.5, 1, 0, 2],
+    [0.5, 2, 0, 0, 0],
+    [1, 0, 2, 2, 2],
+    [0, 0, 2, 2, 0],
+    [1, 0, 1, 0, 2],
+]
+
+ASHTAKOOT_TARA_POINTS = [
+    [3, 3, 1.5, 3, 1.5, 3, 1.5, 3, 3],
+    [3, 3, 1.5, 3, 1.5, 3, 1.5, 3, 3],
+    [1.5, 1.5, 0, 1.5, 0, 1.5, 0, 1.5, 1.5],
+    [3, 3, 1.5, 3, 1.5, 3, 1.5, 3, 3],
+    [1.5, 1.5, 0, 1.5, 0, 1.5, 0, 1.5, 1.5],
+    [3, 3, 1.5, 3, 1.5, 3, 1.5, 3, 3],
+    [1.5, 1.5, 0, 1.5, 0, 1.5, 0, 1, 1],
+    [3, 3, 1.5, 3, 1.5, 3, 1.5, 3, 3],
+    [3, 3, 1.5, 3, 1.5, 3, 1.5, 3, 3],
+]
+
+ASHTAKOOT_YONI_POINTS = [
+    [4, 2, 2, 3, 2, 2, 2, 1, 0, 1, 1, 3, 2, 1],
+    [2, 4, 3, 3, 2, 2, 2, 2, 3, 1, 2, 3, 2, 0],
+    [2, 3, 4, 3, 2, 2, 2, 2, 3, 1, 2, 3, 2, 0],
+    [3, 3, 2, 4, 2, 1, 1, 1, 1, 2, 2, 2, 0, 2],
+    [2, 2, 1, 2, 4, 2, 1, 2, 2, 1, 0, 2, 1, 1],
+    [2, 2, 2, 1, 2, 4, 0, 2, 2, 1, 3, 3, 2, 1],
+    [2, 2, 1, 1, 1, 0, 4, 2, 2, 2, 2, 2, 1, 2],
+    [1, 2, 3, 1, 2, 2, 2, 4, 3, 0, 3, 2, 2, 1],
+    [0, 3, 3, 1, 2, 2, 2, 3, 4, 1, 2, 2, 2, 2],
+    [1, 1, 1, 2, 1, 1, 2, 0, 1, 4, 1, 1, 2, 1],
+    [1, 2, 2, 2, 0, 3, 2, 3, 2, 1, 4, 2, 2, 1],
+    [3, 3, 0, 2, 2, 3, 2, 2, 2, 1, 2, 4, 3, 2],
+    [2, 2, 3, 0, 1, 2, 1, 2, 2, 2, 2, 3, 4, 2],
+    [1, 0, 1, 2, 1, 1, 2, 1, 2, 1, 1, 2, 2, 4],
+]
+
+ASHTAKOOT_GRAHA_MAITRI_POINTS = [
+    [5, 5, 5, 4, 5, 0, 0],
+    [5, 5, 4, 1, 4, 0.5, 0.5],
+    [5, 4, 5, 0.5, 5, 3, 3],
+    [4, 1, 0.5, 5, 0.5, 5, 4],
+    [5, 4, 5, 0.5, 5, 0.5, 3],
+    [0, 0.5, 3, 5, 0.5, 5, 5],
+    [0, 0.5, 3, 4, 3, 5, 5],
+]
+
+ASHTAKOOT_GANA_POINTS = [
+    [6, 3, 1],
+    [5, 6, 3],
+    [0, 0, 6],
+]
+
+ASHTAKOOT_BHAKOOT_POINTS = [
+    [7, 0, 7, 7, 0, 0, 7, 0, 0, 7, 7, 0],
+    [0, 7, 0, 7, 7, 0, 0, 7, 0, 0, 7, 7],
+    [7, 0, 7, 0, 7, 7, 0, 0, 7, 0, 0, 7],
+    [7, 7, 0, 7, 0, 7, 7, 0, 0, 7, 0, 0],
+    [0, 7, 7, 0, 7, 0, 7, 7, 0, 0, 7, 0],
+    [0, 0, 7, 7, 0, 7, 0, 7, 7, 0, 0, 7],
+    [7, 0, 0, 7, 7, 0, 7, 0, 7, 7, 0, 0],
+    [0, 7, 0, 0, 7, 7, 0, 7, 0, 7, 7, 0],
+    [0, 0, 7, 0, 0, 7, 7, 0, 7, 0, 7, 7],
+    [7, 0, 0, 7, 0, 0, 7, 7, 0, 7, 0, 7],
+    [7, 7, 0, 7, 7, 0, 0, 7, 7, 0, 7, 0],
+    [0, 7, 7, 0, 0, 7, 0, 0, 7, 7, 0, 7],
+]
+
+ASHTAKOOT_NADI_POINTS = [
+    [0, 8, 8],
+    [8, 0, 8],
+    [8, 8, 0],
+]
+
+ASHTAKOOT_VARNA_NAMES = ["Brahmin", "Kshatriya", "Vaishya", "Shudra"]
+ASHTAKOOT_VASHYA_NAMES = ["Manava", "Vanachara", "Chatushpada", "Jalachara", "Keeta"]
+ASHTAKOOT_YONI_NAMES = ["Horse", "Elephant", "Sheep", "Serpent", "Dog", "Cat", "Rat", "Cow", "Buffalo", "Tiger", "Hare", "Monkey", "Lion", "Mongoose"]
+ASHTAKOOT_GRAHA_LORD_NAMES = ["Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn"]
+ASHTAKOOT_GANA_NAMES = ["Deva", "Manushya", "Rakshasa"]
+ASHTAKOOT_NADI_NAMES = ["Adi", "Madhya", "Antya"]
+
+ASHTAKOOT_EXPLANATIONS = {
+    "varna": {
+        "title": "Varna",
+        "out_of": 1,
+        "meaning": "spiritual values, ego style, and broad life philosophy",
+        "strength": "The value system and broad outlook can support mutual respect in marriage.",
+        "challenge": "Differences in value systems or ego style may create subtle friction in expectations.",
+    },
+    "vashya": {
+        "title": "Vashya",
+        "out_of": 2,
+        "meaning": "mutual attraction, influence, and power balance",
+        "strength": "The attraction pattern and influence dynamic look naturally cooperative.",
+        "challenge": "Control issues or unequal influence may create power struggles over time.",
+    },
+    "tara": {
+        "title": "Tara",
+        "out_of": 3,
+        "meaning": "fortune, support, and day-to-day harmony",
+        "strength": "The match supports stability, luck, and day-to-day flow as a couple.",
+        "challenge": "The relationship may feel uneven in timing, luck, or emotional support during key phases.",
+    },
+    "yoni": {
+        "title": "Yoni",
+        "out_of": 4,
+        "meaning": "physical chemistry, intimacy, and instinctive comfort",
+        "strength": "The physical and intimate chemistry looks naturally supportive.",
+        "challenge": "Intimacy styles or physical comfort may require patience and conscious understanding.",
+    },
+    "graha_maitri": {
+        "title": "Graha Maitri",
+        "out_of": 5,
+        "meaning": "mental compatibility, friendship, and emotional understanding",
+        "strength": "The charts show scope for friendship, mental rapport, and emotional understanding.",
+        "challenge": "Misunderstandings, communication gaps, or different mental styles could become a recurring issue.",
+    },
+    "gana": {
+        "title": "Gana",
+        "out_of": 6,
+        "meaning": "temperament, behavior, and instinctive reactions",
+        "strength": "Temperamentally, the pair can understand each other's nature and habits well.",
+        "challenge": "Temperament clashes may show up in habits, reactions, and emotional style.",
+    },
+    "bhakoot": {
+        "title": "Bhakoot",
+        "out_of": 7,
+        "meaning": "emotional compatibility, family direction, and shared life momentum",
+        "strength": "The emotional direction of the marriage and long-term life path look aligned.",
+        "challenge": "Differences in family priorities, emotional rhythm, or long-term direction may need careful handling.",
+    },
+    "nadi": {
+        "title": "Nadi",
+        "out_of": 8,
+        "meaning": "health, vitality, and deeper constitutional harmony",
+        "strength": "The deeper energetic rhythm of the match looks supportive for married life.",
+        "challenge": "This is a traditionally sensitive area and can point to health, vitality, or deeper adjustment concerns if ignored.",
+    },
+}
+
+NATURAL_BENEFICS = {"Moon", "Mercury", "Jupiter", "Venus"}
+REMEDY_PRIORITY_PLANETS = ["Moon", "Mercury", "Jupiter", "Venus", "Sun", "Mars", "Saturn", "Rahu", "Ketu"]
+
+GEMSTONE_MAP = {
+    "Sun": {"name": "Ruby", "recommendation": "Wear in gold or copper on a Sunday after proper purification."},
+    "Moon": {"name": "Pearl", "recommendation": "Wear in silver on a Monday after sunrise and prayer."},
+    "Mars": {"name": "Red Coral", "recommendation": "Wear in copper or gold on a Tuesday with disciplined intention."},
+    "Mercury": {"name": "Emerald", "recommendation": "Wear in gold or silver on a Wednesday for clarity and skill."},
+    "Jupiter": {"name": "Yellow Sapphire", "recommendation": "Wear in gold on a Thursday for wisdom, support, and grace."},
+    "Venus": {"name": "Diamond or White Sapphire", "recommendation": "Wear in silver or platinum on a Friday for harmony and refinement."},
+    "Saturn": {"name": "Blue Sapphire", "recommendation": "Wear only with strong caution and expert confirmation before use."},
+}
+
+MANTRA_MAP = {
+    "Sun": {"mantra": "Om Hraam Hreem Hraum Sah Suryaya Namah", "practice": "108 repetitions on Sundays or daily at sunrise."},
+    "Moon": {"mantra": "Om Som Somaya Namah", "practice": "108 repetitions on Mondays, ideally in the evening or near moonrise."},
+    "Mars": {"mantra": "Om Kraam Kreem Kraum Sah Bhaumaya Namah", "practice": "108 repetitions on Tuesdays with steadiness and restraint."},
+    "Mercury": {"mantra": "Om Bum Budhaya Namah", "practice": "108 repetitions on Wednesdays for mental clarity and speech balance."},
+    "Jupiter": {"mantra": "Om Graam Greem Graum Sah Gurave Namah", "practice": "108 repetitions on Thursdays with gratitude to teachers and guides."},
+    "Venus": {"mantra": "Om Draam Dreem Draum Sah Shukraya Namah", "practice": "108 repetitions on Fridays for harmony, relationships, and comfort."},
+    "Saturn": {"mantra": "Om Praam Preem Praum Sah Shanaye Namah", "practice": "108 repetitions on Saturdays with patience and humility."},
+    "Rahu": {"mantra": "Om Raam Rahave Namah", "practice": "108 repetitions on Saturdays or during Rahu-focused sadhana for grounding."},
+    "Ketu": {"mantra": "Om Kem Ketave Namah", "practice": "108 repetitions on Tuesdays or Thursdays for detachment and inner clarity."},
+}
+
+FASTING_MAP = {
+    "Sun": {"day": "Sunday", "practice": "Keep a light fast or one simple sattvic meal while honoring Surya and self-discipline."},
+    "Moon": {"day": "Monday", "practice": "Observe a gentle fast with calming foods, prayer, and emotional steadiness."},
+    "Mars": {"day": "Tuesday", "practice": "Take one simple meal and avoid anger, haste, and unnecessary conflict."},
+    "Mercury": {"day": "Wednesday", "practice": "Keep food light and use the day for mindful speech, study, and mental cleanliness."},
+    "Jupiter": {"day": "Thursday", "practice": "Take a simple sattvic fast with prayer, study, and respect toward teachers and elders."},
+    "Venus": {"day": "Friday", "practice": "Keep the day clean, balanced, and restrained while honoring beauty without excess."},
+    "Saturn": {"day": "Saturday", "practice": "Observe a disciplined fast or simple meal with service, humility, and patience."},
+    "Rahu": {"day": "Saturday", "practice": "Use Saturday restraint, simplicity, and grounding practices to settle Rahu's turbulence."},
+    "Ketu": {"day": "Tuesday", "practice": "Take a simple fast with meditation, silence, and non-attachment practices."},
+}
+
+CHARITY_MAP = {
+    "Sun": {"recommendation": "Donate wheat, jaggery, copper, or support fatherly figures, mentors, or public service work."},
+    "Moon": {"recommendation": "Offer milk, rice, white clothing, or nourishment to mothers, women, or those needing emotional care."},
+    "Mars": {"recommendation": "Donate red lentils or support injured people, emergency causes, or disciplined physical service."},
+    "Mercury": {"recommendation": "Give green moong, stationery, books, or educational support for students and young learners."},
+    "Jupiter": {"recommendation": "Donate turmeric, yellow foods, scriptures, or support teachers, priests, and education."},
+    "Venus": {"recommendation": "Offer white sweets, clothing, beauty-care essentials, or support women in need."},
+    "Saturn": {"recommendation": "Donate black sesame, blankets, footwear, or serve laborers, elders, or the chronically burdened."},
+    "Rahu": {"recommendation": "Feed the poor, support addiction recovery or mental-health care, and reduce chaotic excess in life."},
+    "Ketu": {"recommendation": "Feed stray dogs, support spiritual spaces, or give quietly without seeking recognition."},
+}
+
+RUDRAKSHA_MAP = {
+    "Sun": {"name": "1 Mukhi Rudraksha", "recommendation": "Used for solar authority, vitality, and centered identity."},
+    "Moon": {"name": "2 Mukhi Rudraksha", "recommendation": "Used for emotional balance, peace, and relational softness."},
+    "Mars": {"name": "3 Mukhi Rudraksha", "recommendation": "Used for courage, energy balance, and directed will."},
+    "Mercury": {"name": "4 Mukhi Rudraksha", "recommendation": "Used for speech, intellect, study, and mental order."},
+    "Jupiter": {"name": "5 Mukhi Rudraksha", "recommendation": "Used for wisdom, guidance, and sattvic steadiness."},
+    "Venus": {"name": "6 Mukhi Rudraksha", "recommendation": "Used for harmony, attraction, relationship grace, and refined pleasures."},
+    "Saturn": {"name": "7 Mukhi Rudraksha", "recommendation": "Used for endurance, karmic balance, and patient discipline."},
+    "Rahu": {"name": "8 Mukhi Rudraksha", "recommendation": "Used for grounding ambition, reducing confusion, and handling worldly turbulence."},
+    "Ketu": {"name": "9 Mukhi Rudraksha", "recommendation": "Used for inner detachment, spiritual sharpness, and karmic release."},
+}
+
 # ----- Database Lifespan -----
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -234,6 +442,328 @@ def get_first_name(full_name: Optional[str]) -> str:
     if not cleaned:
         return "there"
     return cleaned.split()[0]
+
+
+def get_ashtakoot_varna_class(moon_sign_index: int) -> int:
+    if moon_sign_index in {4, 8, 12}:
+        return 0
+    if moon_sign_index in {1, 5, 9}:
+        return 1
+    if moon_sign_index in {2, 6, 10}:
+        return 2
+    return 3
+
+
+def get_ashtakoot_vashya_group(moon_sign_index: int) -> int:
+    if moon_sign_index in {3, 6, 7, 9, 11}:
+        return 0
+    if moon_sign_index == 5:
+        return 1
+    if moon_sign_index in {1, 2, 10}:
+        return 2
+    if moon_sign_index in {4, 12}:
+        return 3
+    return 4
+
+
+def get_ashtakoot_tara_group(nakshatra_index: int) -> int:
+    if nakshatra_index < 10:
+        return nakshatra_index - 1
+    if nakshatra_index <= 18:
+        return int(str(nakshatra_index)[-1])
+    return int(str(nakshatra_index)[-1]) + 1
+
+
+def get_ashtakoot_yoni_animal(nakshatra_index: int) -> int:
+    animal_mappings = {
+        1: 0,
+        2: 1,
+        3: 2,
+        4: 3,
+        5: 3,
+        6: 4,
+        7: 5,
+        8: 2,
+        9: 5,
+        10: 6,
+        11: 6,
+        12: 7,
+        13: 8,
+        14: 9,
+        15: 8,
+        16: 9,
+        17: 11,
+        18: 10,
+        19: 4,
+        20: 11,
+        21: 12,
+        22: 11,
+        23: 13,
+        24: 0,
+        25: 13,
+        26: 7,
+        27: 1,
+        28: 12,
+    }
+    return animal_mappings[nakshatra_index]
+
+
+def get_ashtakoot_sign_lord(moon_sign_index: int) -> int:
+    sign_lord_mappings = {
+        5: 0,
+        4: 1,
+        1: 2,
+        8: 2,
+        3: 3,
+        6: 3,
+        9: 4,
+        12: 4,
+        2: 5,
+        7: 5,
+        10: 6,
+        11: 6,
+    }
+    return sign_lord_mappings[moon_sign_index]
+
+
+def get_ashtakoot_gana(nakshatra_index: int) -> int:
+    if nakshatra_index in {1, 5, 7, 8, 13, 15, 17, 22, 27}:
+        return 0
+    if nakshatra_index in {2, 4, 6, 11, 12, 20, 21, 25, 26}:
+        return 1
+    return 2
+
+
+def get_ashtakoot_nadi(nakshatra_index: int) -> int:
+    if nakshatra_index in {1, 6, 7, 12, 13, 18, 19, 24, 25}:
+        return 0
+    if nakshatra_index in {2, 5, 8, 11, 14, 17, 20, 23, 26}:
+        return 1
+    return 2
+
+
+def extract_moon_match_profile(kundli: Dict[str, Any], name: Optional[str] = None) -> Dict[str, Any]:
+    moon = next(
+        (
+            planet for planet in kundli.get("planets", [])
+            if planet.get("name") == "Moon" and "error" not in planet
+        ),
+        None,
+    )
+    janma = kundli.get("janma_nakshatra") or {}
+    if not moon or not janma.get("index"):
+        raise HTTPException(status_code=500, detail="Moon or Janma Nakshatra data missing for compatibility check")
+
+    moon_sign_index = int(moon.get("sign_index"))
+    nakshatra_index = int(janma.get("index"))
+    return {
+        "name": name or "Native",
+        "moon_sign_index": moon_sign_index,
+        "moon_sign": moon.get("sign"),
+        "nakshatra_index": nakshatra_index,
+        "nakshatra_name": janma.get("name"),
+        "nakshatra_pada": janma.get("pada"),
+    }
+
+
+def normalize_match_role(value: Optional[str]) -> str:
+    role = str(value or "").strip().lower()
+    if role not in {"bride", "groom"}:
+        raise HTTPException(status_code=400, detail="native_role must be either 'bride' or 'groom'")
+    return role
+
+
+def build_ashtakoot_breakdown(bride: Dict[str, Any], groom: Dict[str, Any]) -> list[Dict[str, Any]]:
+    bride_varna = get_ashtakoot_varna_class(bride["moon_sign_index"])
+    groom_varna = get_ashtakoot_varna_class(groom["moon_sign_index"])
+    bride_vashya = get_ashtakoot_vashya_group(bride["moon_sign_index"])
+    groom_vashya = get_ashtakoot_vashya_group(groom["moon_sign_index"])
+    bride_tara = get_ashtakoot_tara_group(bride["nakshatra_index"])
+    groom_tara = get_ashtakoot_tara_group(groom["nakshatra_index"])
+    bride_yoni = get_ashtakoot_yoni_animal(bride["nakshatra_index"])
+    groom_yoni = get_ashtakoot_yoni_animal(groom["nakshatra_index"])
+    bride_lord = get_ashtakoot_sign_lord(bride["moon_sign_index"])
+    groom_lord = get_ashtakoot_sign_lord(groom["moon_sign_index"])
+    bride_gana = get_ashtakoot_gana(bride["nakshatra_index"])
+    groom_gana = get_ashtakoot_gana(groom["nakshatra_index"])
+    bride_nadi = get_ashtakoot_nadi(bride["nakshatra_index"])
+    groom_nadi = get_ashtakoot_nadi(groom["nakshatra_index"])
+
+    raw_items = [
+        {
+            "key": "varna",
+            "score": float(ASHTAKOOT_VARNA_POINTS[bride_varna][groom_varna]),
+            "out_of": float(ASHTAKOOT_EXPLANATIONS["varna"]["out_of"]),
+            "bride_value": ASHTAKOOT_VARNA_NAMES[bride_varna],
+            "groom_value": ASHTAKOOT_VARNA_NAMES[groom_varna],
+        },
+        {
+            "key": "vashya",
+            "score": float(ASHTAKOOT_VASHYA_POINTS[bride_vashya][groom_vashya]),
+            "out_of": float(ASHTAKOOT_EXPLANATIONS["vashya"]["out_of"]),
+            "bride_value": ASHTAKOOT_VASHYA_NAMES[bride_vashya],
+            "groom_value": ASHTAKOOT_VASHYA_NAMES[groom_vashya],
+        },
+        {
+            "key": "tara",
+            "score": float(ASHTAKOOT_TARA_POINTS[bride_tara][groom_tara]),
+            "out_of": float(ASHTAKOOT_EXPLANATIONS["tara"]["out_of"]),
+            "bride_value": bride["nakshatra_name"],
+            "groom_value": groom["nakshatra_name"],
+        },
+        {
+            "key": "yoni",
+            "score": float(ASHTAKOOT_YONI_POINTS[bride_yoni][groom_yoni]),
+            "out_of": float(ASHTAKOOT_EXPLANATIONS["yoni"]["out_of"]),
+            "bride_value": ASHTAKOOT_YONI_NAMES[bride_yoni],
+            "groom_value": ASHTAKOOT_YONI_NAMES[groom_yoni],
+        },
+        {
+            "key": "graha_maitri",
+            "score": float(ASHTAKOOT_GRAHA_MAITRI_POINTS[bride_lord][groom_lord]),
+            "out_of": float(ASHTAKOOT_EXPLANATIONS["graha_maitri"]["out_of"]),
+            "bride_value": ASHTAKOOT_GRAHA_LORD_NAMES[bride_lord],
+            "groom_value": ASHTAKOOT_GRAHA_LORD_NAMES[groom_lord],
+        },
+        {
+            "key": "gana",
+            "score": float(ASHTAKOOT_GANA_POINTS[bride_gana][groom_gana]),
+            "out_of": float(ASHTAKOOT_EXPLANATIONS["gana"]["out_of"]),
+            "bride_value": ASHTAKOOT_GANA_NAMES[bride_gana],
+            "groom_value": ASHTAKOOT_GANA_NAMES[groom_gana],
+        },
+        {
+            "key": "bhakoot",
+            "score": float(ASHTAKOOT_BHAKOOT_POINTS[bride["moon_sign_index"] - 1][groom["moon_sign_index"] - 1]),
+            "out_of": float(ASHTAKOOT_EXPLANATIONS["bhakoot"]["out_of"]),
+            "bride_value": bride["moon_sign"],
+            "groom_value": groom["moon_sign"],
+        },
+        {
+            "key": "nadi",
+            "score": float(ASHTAKOOT_NADI_POINTS[bride_nadi][groom_nadi]),
+            "out_of": float(ASHTAKOOT_EXPLANATIONS["nadi"]["out_of"]),
+            "bride_value": ASHTAKOOT_NADI_NAMES[bride_nadi],
+            "groom_value": ASHTAKOOT_NADI_NAMES[groom_nadi],
+        },
+    ]
+
+    breakdown: list[Dict[str, Any]] = []
+    for item in raw_items:
+        meta = ASHTAKOOT_EXPLANATIONS[item["key"]]
+        ratio = (item["score"] / item["out_of"]) if item["out_of"] else 0.0
+        if ratio >= 0.75:
+            interpretation = meta["strength"]
+        elif ratio <= 0.34:
+            interpretation = meta["challenge"]
+        else:
+            interpretation = f"This area is moderate: {meta['meaning']} show some support, but it is not completely effortless."
+
+        breakdown.append(
+            {
+                "key": item["key"],
+                "title": meta["title"],
+                "score": item["score"],
+                "out_of": item["out_of"],
+                "meaning": meta["meaning"],
+                "bride_value": item["bride_value"],
+                "groom_value": item["groom_value"],
+                "interpretation": interpretation,
+                "ratio": ratio,
+            }
+        )
+
+    return breakdown
+
+
+def classify_guna_match(total_score: float) -> Dict[str, str]:
+    if total_score >= 30:
+        return {
+            "label": "Excellent Match",
+            "summary": "This is an excellent Ashtakoot score and traditionally shows strong marriage potential.",
+        }
+    if total_score >= 24:
+        return {
+            "label": "Very Good Match",
+            "summary": "This is a very good compatibility score with solid support for marriage and long-term adjustment.",
+        }
+    if total_score >= 18:
+        return {
+            "label": "Good to Moderate Match",
+            "summary": "This clears the traditional minimum comfort zone, but a few areas will need maturity and conscious handling.",
+        }
+    return {
+        "label": "Challenging Match",
+        "summary": "This is below the traditional comfort threshold, so marriage would need extra care, compatibility awareness, and family guidance.",
+    }
+
+
+def build_compatibility_insights(breakdown: list[Dict[str, Any]]) -> Dict[str, Any]:
+    ordered = sorted(breakdown, key=lambda item: (item["ratio"], item["out_of"]))
+    challenges = [item for item in ordered if item["ratio"] <= 0.5][:3]
+    strengths = [item for item in sorted(breakdown, key=lambda item: (-item["ratio"], -item["out_of"])) if item["ratio"] >= 0.75][:3]
+
+    if strengths:
+        best = strengths[0]
+        best_part = f"The best part of this marriage is likely to be {best['meaning']}, because {best['title']} is one of the strongest areas in the match."
+    else:
+        best = max(breakdown, key=lambda item: item["ratio"])
+        best_part = f"The best part of this marriage is likely to come from {best['meaning']}, which is comparatively stronger than the rest of the match."
+
+    challenge_lines = [
+        f"{item['title']}: {item['interpretation']}"
+        for item in challenges
+    ]
+    strength_lines = [
+        f"{item['title']}: {item['interpretation']}"
+        for item in strengths
+    ]
+
+    return {
+        "strengths": strength_lines,
+        "challenges": challenge_lines,
+        "best_part_about_marriage": best_part,
+    }
+
+
+def build_ashtakoot_match_response(
+    native_kundli: Dict[str, Any],
+    partner_kundli: Dict[str, Any],
+    native_name: Optional[str],
+    partner_name: Optional[str],
+    native_role: str,
+) -> Dict[str, Any]:
+    native_profile = extract_moon_match_profile(native_kundli, native_name or "You")
+    partner_profile = extract_moon_match_profile(partner_kundli, partner_name or "Partner")
+
+    if native_role == "bride":
+        bride = native_profile
+        groom = partner_profile
+    else:
+        bride = partner_profile
+        groom = native_profile
+
+    breakdown = build_ashtakoot_breakdown(bride, groom)
+    total_score = round(sum(item["score"] for item in breakdown), 1)
+    verdict = classify_guna_match(total_score)
+    insights = build_compatibility_insights(breakdown)
+
+    return {
+        "native_name": native_profile["name"],
+        "partner_name": partner_profile["name"],
+        "native_role": native_role,
+        "partner_role": "groom" if native_role == "bride" else "bride",
+        "total_score": total_score,
+        "out_of": 36,
+        "verdict": verdict["label"],
+        "score_summary": f"{total_score}/36 gunas match.",
+        "compatibility_summary": verdict["summary"],
+        "breakdown": breakdown,
+        "strengths": insights["strengths"],
+        "challenges": insights["challenges"],
+        "best_part_about_marriage": insights["best_part_about_marriage"],
+        "traditional_note": "Traditionally, 18 or more gunas is considered workable, 24+ is strong, and 30+ is excellent.",
+    }
 
 
 def classify_response_mode(user_query: Optional[str], is_first_message: bool = False) -> str:
@@ -1130,6 +1660,11 @@ def build_detailed_chart_summary(kundli: Dict[str, Any], profile: Optional[Dict[
         lines.append("Aspect highlights:")
         lines.extend(aspect_notes)
 
+    remedy_notes = summarize_rule_based_remedies(kundli)
+    if remedy_notes:
+        lines.append("Rule-based remedies:")
+        lines.extend(remedy_notes)
+
     return "\n".join(lines)
 
 
@@ -1299,6 +1834,250 @@ def build_chart_hover_summary(
         f"{chart_context} it works through {sign} in the {house} house, highlighting {house_theme}. "
         f"{tone_line}{status_line}"
     )
+
+
+def join_phrases(parts: list[str]) -> str:
+    filtered = [part for part in parts if part]
+    if not filtered:
+        return ""
+    if len(filtered) == 1:
+        return filtered[0]
+    if len(filtered) == 2:
+        return f"{filtered[0]} and {filtered[1]}"
+    return ", ".join(filtered[:-1]) + f", and {filtered[-1]}"
+
+
+def build_planet_remedy_profile(
+    kundli: Dict[str, Any],
+    lagna_lord: Optional[str],
+    detail: Dict[str, Any],
+) -> Dict[str, Any]:
+    planet_name = detail["name"]
+    house = int(detail.get("house") or 0)
+    statuses = detail.get("statuses") or []
+    condition_data = get_chart_condition_data(kundli, planet_name)
+    functional_status = (condition_data.get("functional_nature") or {}).get("status")
+
+    support_score = 0
+    support_reasons: list[str] = []
+    weakness_score = 0
+    weakness_reasons: list[str] = []
+
+    if planet_name == lagna_lord:
+        support_score += 3
+        support_reasons.append("it is the Lagna lord")
+    if functional_status == "functional_benefic":
+        support_score += 2
+        support_reasons.append("it acts as a functional benefic for this ascendant")
+    elif functional_status == "mixed":
+        support_score += 1
+        support_reasons.append("it gives mixed but usable results in this chart")
+    elif functional_status == "functional_malefic":
+        support_score -= 2
+        weakness_score += 1
+        weakness_reasons.append("it behaves as a functional malefic for this ascendant")
+
+    if planet_name in NATURAL_BENEFICS and functional_status != "functional_malefic":
+        support_score += 1
+        support_reasons.append("it is naturally benefic")
+
+    if "Debilitated" in statuses:
+        weakness_score += 3
+        weakness_reasons.append("it is debilitated")
+    if "Combust" in statuses:
+        weakness_score += 2
+        weakness_reasons.append("it is combust")
+    if house in {6, 8, 12}:
+        weakness_score += 1
+        weakness_reasons.append(f"it sits in the {house}th house")
+
+    if "Exalted" in statuses:
+        weakness_score -= 2
+        support_reasons.append("it is exalted")
+    if "Own Sign" in statuses:
+        weakness_score -= 2
+        support_reasons.append("it is in its own sign")
+    if "Moolatrikona" in statuses:
+        weakness_score -= 1
+        support_reasons.append("it is in moolatrikona")
+    if "Vargottama" in statuses:
+        weakness_score -= 1
+        support_reasons.append("it is vargottama")
+
+    weakness_score = max(0, weakness_score)
+    affliction_score = weakness_score
+    if functional_status == "functional_malefic":
+        affliction_score += 1
+
+    return {
+        "planet": planet_name,
+        "house": house,
+        "sign": detail.get("sign"),
+        "statuses": statuses,
+        "support_score": support_score,
+        "support_reasons": support_reasons,
+        "weakness_score": weakness_score,
+        "weakness_reasons": weakness_reasons,
+        "affliction_score": affliction_score,
+        "functional_status": functional_status,
+    }
+
+
+def build_supportive_reason(profile: Dict[str, Any]) -> str:
+    support_text = join_phrases(profile.get("support_reasons") or [])
+    weakness_text = join_phrases(profile.get("weakness_reasons") or [])
+    if support_text and weakness_text:
+        return f"{profile['planet']} is supportive here because {support_text}, but it still needs help because {weakness_text}."
+    if support_text:
+        return f"{profile['planet']} is supportive here because {support_text}."
+    if weakness_text:
+        return f"{profile['planet']} needs strengthening because {weakness_text}."
+    return f"{profile['planet']} can be supported gently through traditional remedial measures."
+
+
+def build_affliction_reason(profile: Dict[str, Any]) -> str:
+    weakness_text = join_phrases(profile.get("weakness_reasons") or [])
+    if weakness_text:
+        return f"{profile['planet']} shows stress because {weakness_text}."
+    return f"{profile['planet']} shows enough strain in the natal chart to justify a gentle remedy."
+
+
+def build_rule_based_remedies(kundli: Dict[str, Any]) -> Dict[str, Any]:
+    asc_sign = (kundli.get("ascendant") or {}).get("sign")
+    lagna_lord = SIGN_RULERS.get(asc_sign)
+    detail_map = {
+        detail["name"]: detail
+        for detail in build_chart_planet_details(kundli, "D1")
+    }
+    profiles = [
+        build_planet_remedy_profile(kundli, lagna_lord, detail_map[name])
+        for name in REMEDY_PRIORITY_PLANETS
+        if name in detail_map
+    ]
+
+    gemstone_candidates = sorted(
+        [
+            profile for profile in profiles
+            if profile["planet"] in GEMSTONE_MAP
+            and profile["support_score"] >= 2
+            and profile["weakness_score"] >= 2
+            and profile["functional_status"] != "functional_malefic"
+        ],
+        key=lambda profile: (-profile["weakness_score"], -profile["support_score"], PLANET_SORT_ORDER.get(profile["planet"], 999)),
+    )[:3]
+
+    affliction_candidates = sorted(
+        [profile for profile in profiles if profile["affliction_score"] >= 2],
+        key=lambda profile: (-profile["affliction_score"], PLANET_SORT_ORDER.get(profile["planet"], 999)),
+    )
+
+    gemstones = [
+        {
+            "planet": profile["planet"],
+            "gemstone": GEMSTONE_MAP[profile["planet"]]["name"],
+            "recommendation": GEMSTONE_MAP[profile["planet"]]["recommendation"],
+            "why": build_supportive_reason(profile),
+            "caution": "Gemstones strengthen planets strongly, so confirm before wearing them regularly.",
+        }
+        for profile in gemstone_candidates
+    ]
+
+    mantras = [
+        {
+            "planet": profile["planet"],
+            "mantra": MANTRA_MAP[profile["planet"]]["mantra"],
+            "practice": MANTRA_MAP[profile["planet"]]["practice"],
+            "why": build_affliction_reason(profile),
+        }
+        for profile in affliction_candidates[:5]
+        if profile["planet"] in MANTRA_MAP
+    ]
+
+    fasting = [
+        {
+            "planet": profile["planet"],
+            "day": FASTING_MAP[profile["planet"]]["day"],
+            "practice": FASTING_MAP[profile["planet"]]["practice"],
+            "why": build_affliction_reason(profile),
+        }
+        for profile in affliction_candidates[:4]
+        if profile["planet"] in FASTING_MAP
+    ]
+
+    charity = [
+        {
+            "planet": profile["planet"],
+            "recommendation": CHARITY_MAP[profile["planet"]]["recommendation"],
+            "why": build_affliction_reason(profile),
+        }
+        for profile in affliction_candidates[:5]
+        if profile["planet"] in CHARITY_MAP
+    ]
+
+    rudraksha = [
+        {
+            "planet": profile["planet"],
+            "rudraksha": RUDRAKSHA_MAP[profile["planet"]]["name"],
+            "recommendation": RUDRAKSHA_MAP[profile["planet"]]["recommendation"],
+            "why": build_affliction_reason(profile),
+        }
+        for profile in affliction_candidates[:4]
+        if profile["planet"] in RUDRAKSHA_MAP
+    ]
+
+    return {
+        "overview": (
+            "These rule-based remedies are derived from the natal chart by identifying supportive planets that need strengthening "
+            "and afflicted planets that benefit from soothing, discipline, and spiritual correction."
+        ),
+        "gemstones": gemstones,
+        "mantras": mantras,
+        "fasting": fasting,
+        "charity": charity,
+        "rudraksha": rudraksha,
+        "notes": [
+            "Gemstones are best reserved for planets that are helpful for the chart but weak in expression.",
+            "Mantra, charity, fasting, and rudraksha are gentler remedies than gemstones and are usually safer starting points.",
+        ],
+    }
+
+
+def summarize_rule_based_remedies(kundli: Dict[str, Any]) -> list[str]:
+    remedies = build_rule_based_remedies(kundli)
+    lines: list[str] = []
+
+    if remedies["gemstones"]:
+        lines.append(
+            "- Gemstones: "
+            + "; ".join(f"{item['gemstone']} for {item['planet']}" for item in remedies["gemstones"][:2])
+            + "."
+        )
+    if remedies["mantras"]:
+        lines.append(
+            "- Mantras: "
+            + "; ".join(f"{item['planet']} mantra" for item in remedies["mantras"][:3])
+            + "."
+        )
+    if remedies["fasting"]:
+        lines.append(
+            "- Fasting: "
+            + "; ".join(f"{item['day']} for {item['planet']}" for item in remedies["fasting"][:3])
+            + "."
+        )
+    if remedies["charity"]:
+        lines.append(
+            "- Charity: "
+            + "; ".join(f"{item['planet']}-linked donation/service" for item in remedies["charity"][:3])
+            + "."
+        )
+    if remedies["rudraksha"]:
+        lines.append(
+            "- Rudraksha: "
+            + "; ".join(f"{item['rudraksha']} for {item['planet']}" for item in remedies["rudraksha"][:2])
+            + "."
+        )
+
+    return lines
 
 
 def is_vargottama_placement(
@@ -2002,6 +2781,79 @@ async def charts(request: Request):
     )
 
 
+@app.get("/remedies")
+async def remedies(request: Request):
+    session_id = request.headers.get("x-session-id")
+    if not session_id:
+        raise HTTPException(status_code=400, detail="Missing X-Session-Id header")
+
+    kundli = await get_or_restore_kundli(session_id)
+    if not kundli:
+        raise HTTPException(status_code=404, detail="Kundli not found for this session")
+
+    try:
+        remedies_payload = build_rule_based_remedies(kundli)
+    except Exception:
+        logger.exception("Failed to build remedies for session_id=%s", session_id)
+        raise HTTPException(status_code=500, detail="Failed to build remedies")
+
+    return JSONResponse(content=remedies_payload)
+
+
+@app.post("/compatibility")
+async def compatibility(request: Request):
+    session_id = request.headers.get("x-session-id")
+    if not session_id:
+        raise HTTPException(status_code=400, detail="Missing X-Session-Id header")
+
+    try:
+        payload = await request.json()
+    except Exception:
+        logger.exception("Invalid JSON in /compatibility")
+        raise HTTPException(status_code=400, detail="Invalid JSON payload")
+
+    native_role = normalize_match_role(payload.get("native_role"))
+    partner_details = payload.get("partner") or {}
+    if not partner_details:
+        raise HTTPException(status_code=400, detail="Missing partner details in payload")
+
+    try:
+        sessions_collection = get_sessions_collection()
+        session_doc = await sessions_collection.find_one(
+            {"session_id": session_id},
+            {"birth_details": 1, "full_name": 1},
+        )
+    except Exception:
+        logger.exception("Failed to load native birth data for compatibility session_id=%s", session_id)
+        raise HTTPException(status_code=500, detail="Failed to load native birth details")
+
+    native_birth_details = (session_doc or {}).get("birth_details")
+    if not native_birth_details:
+        raise HTTPException(status_code=404, detail="Native birth details not found for this session")
+
+    try:
+        native_kundli = get_kundli(session_id)
+        if not native_kundli:
+            native_kundli = json.loads(generate_chart(native_birth_details, house_system="WS"))
+            store_kundli(session_id, native_kundli)
+
+        partner_kundli = json.loads(generate_chart(partner_details, house_system="WS"))
+        result = build_ashtakoot_match_response(
+            native_kundli=native_kundli,
+            partner_kundli=partner_kundli,
+            native_name=(session_doc or {}).get("full_name") or "You",
+            partner_name=partner_details.get("fullName") or "Partner",
+            native_role=native_role,
+        )
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("Failed to compute compatibility for session_id=%s", session_id)
+        raise HTTPException(status_code=500, detail="Failed to compute compatibility")
+
+    return JSONResponse(content=result)
+
+
 @app.post("/chat")
 async def chat(request: Request):
     """
@@ -2064,7 +2916,7 @@ async def chat(request: Request):
         final_input = (
             "You are a seasoned Vedic astrologer (Jyotishi).\n"
             "Use only the chart summary and recent conversation below.\n"
-            "Do not invent chart facts, yogas, dates, or remedies.\n"
+            "Do not invent chart facts, yogas, dates, or remedies beyond the provided rule-based remedy notes.\n"
             "Answer directly and support your conclusions with the most relevant placements, house lords, yogas, aspects, dashas, or divisional-chart notes.\n"
             "If the chart is mixed, say so clearly.\n"
             "If asked about death prediction or exact death timing, refuse briefly and redirect to safer guidance.\n"
