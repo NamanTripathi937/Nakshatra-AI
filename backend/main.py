@@ -14,7 +14,7 @@ from fastapi.responses import JSONResponse
 from langchain_groq import ChatGroq
 from langchain.chains import ConversationChain
 from langchain.memory import ConversationBufferMemory
-from langchain.schema import SystemMessage
+from langchain.schema import AIMessage, HumanMessage, SystemMessage
 
 # from api.astrology import get_kundli_data // Can use freeastrologyapi.com to get kundli data
 from astro.astro import generate_chart
@@ -29,6 +29,65 @@ ZODIAC_SIGNS = [
     "Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo",
     "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces",
 ]
+
+SIGN_RULERS = {
+    "Aries": "Mars",
+    "Taurus": "Venus",
+    "Gemini": "Mercury",
+    "Cancer": "Moon",
+    "Leo": "Sun",
+    "Virgo": "Mercury",
+    "Libra": "Venus",
+    "Scorpio": "Mars",
+    "Sagittarius": "Jupiter",
+    "Capricorn": "Saturn",
+    "Aquarius": "Saturn",
+    "Pisces": "Jupiter",
+}
+
+SIGN_KEYWORDS = {
+    "Aries": "direct, bold, action-oriented",
+    "Taurus": "steady, sensual, security-seeking",
+    "Gemini": "curious, adaptable, communicative",
+    "Cancer": "protective, feeling-led, nurturing",
+    "Leo": "expressive, proud, creative",
+    "Virgo": "analytical, skillful, improvement-oriented",
+    "Libra": "relational, aesthetic, balance-seeking",
+    "Scorpio": "intense, strategic, private",
+    "Sagittarius": "philosophical, optimistic, freedom-seeking",
+    "Capricorn": "disciplined, pragmatic, status-aware",
+    "Aquarius": "independent, unconventional, future-minded",
+    "Pisces": "imaginative, compassionate, porous",
+}
+
+HOUSE_THEMES = {
+    1: "self, vitality, appearance, and overall life direction",
+    2: "speech, family, stored wealth, and values",
+    3: "courage, communication, skills, and siblings",
+    4: "home, mother, emotional foundations, and comforts",
+    5: "intelligence, creativity, children, and merit",
+    6: "work, conflict, debt, disease, and discipline",
+    7: "partnership, marriage, agreements, and public dealings",
+    8: "transformation, secrecy, vulnerability, and inheritance",
+    9: "dharma, fortune, teachers, father, and higher guidance",
+    10: "career, karma, reputation, and visible achievement",
+    11: "gains, networks, ambitions, and elder siblings",
+    12: "loss, retreat, sleep, foreign ties, and inner withdrawal",
+}
+
+PLANET_THEMES = {
+    "Sun": "identity, vitality, authority",
+    "Moon": "mind, emotions, nourishment",
+    "Mars": "drive, assertion, conflict",
+    "Mercury": "intellect, language, adaptability",
+    "Jupiter": "wisdom, growth, guidance",
+    "Venus": "love, pleasure, aesthetics",
+    "Saturn": "duty, endurance, delay",
+    "Rahu": "amplification, appetite, worldly desire",
+    "Ketu": "detachment, insight, past-life residue",
+}
+
+PLANET_DISPLAY_ORDER = ["Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn", "Rahu", "Ketu"]
 
 # ----- Database Lifespan -----
 @asynccontextmanager
@@ -90,6 +149,9 @@ _kundli_lock = Lock()
 _chain_store: Dict[str, ConversationChain] = {}
 _chain_lock = Lock()
 
+_chart_summary_store: Dict[str, str] = {}
+_chart_summary_lock = Lock()
+
 
 def store_kundli(session_id: str, kundli: Dict[str, Any]) -> None:
     with _kundli_lock:
@@ -99,6 +161,16 @@ def store_kundli(session_id: str, kundli: Dict[str, Any]) -> None:
 def get_kundli(session_id: str) -> Optional[Dict[str, Any]]:
     with _kundli_lock:
         return _kundli_store.get(session_id)
+
+
+def store_chart_summary(session_id: str, summary: str) -> None:
+    with _chart_summary_lock:
+        _chart_summary_store[session_id] = summary
+
+
+def get_chart_summary(session_id: str) -> Optional[str]:
+    with _chart_summary_lock:
+        return _chart_summary_store.get(session_id)
 
 
 def get_first_name(full_name: Optional[str]) -> str:
@@ -667,6 +739,326 @@ def get_dasha_lord_context(kundli: Dict[str, Any], planet_name: Optional[str]) -
     )
 
 
+def canonical_planet_name(name: Optional[str]) -> str:
+    if name in {"TrueNode", "MeanNode"}:
+        return "Rahu"
+    return str(name or "")
+
+
+def format_date_short(value: Optional[str]) -> str:
+    if not value:
+        return "unknown"
+    try:
+        return datetime.fromisoformat(value).strftime("%Y-%m-%d")
+    except ValueError:
+        return str(value)
+
+
+def format_date_range(start: Optional[str], end: Optional[str]) -> str:
+    return f"{format_date_short(start)} to {format_date_short(end)}"
+
+
+def normalize_yoga_name(name: str) -> str:
+    return " ".join(part.capitalize() for part in str(name or "").replace("_", " ").split())
+
+
+def build_planet_lookup(kundli: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
+    lookup: Dict[str, Dict[str, Any]] = {}
+    for planet in kundli.get("planets", []):
+        if "error" in planet:
+            continue
+        canonical_name = canonical_planet_name(planet.get("name"))
+        enriched = dict(planet)
+        enriched["_canonical_name"] = canonical_name
+        lookup[canonical_name] = enriched
+
+    ketu_context = derive_ketu_context(kundli)
+    if ketu_context:
+        lookup["Ketu"] = {
+            "name": "Ketu",
+            "_canonical_name": "Ketu",
+            "sign": ketu_context.get("placement_sign"),
+            "house": ketu_context.get("placement_house"),
+            "retrograde": True,
+        }
+    return lookup
+
+
+def build_condition_tags(planet_name: str, kundli: Dict[str, Any], planet: Dict[str, Any]) -> list[str]:
+    conditions = (kundli.get("planetary_conditions") or {}).get(planet_name) or planet.get("conditions") or {}
+    tags: list[str] = []
+
+    dignity = conditions.get("dignity") or {}
+    dignity_status = dignity.get("status")
+    if dignity_status and dignity_status not in {"ordinary", "not_applicable"}:
+        tags.append(dignity_status.replace("_", " "))
+
+    combustion = conditions.get("combustion") or {}
+    if combustion.get("status") == "combust":
+        tags.append("combust")
+
+    functional = conditions.get("functional_nature") or {}
+    functional_status = functional.get("status")
+    if functional_status and functional_status not in {"ordinary", "mixed", "not_applicable"}:
+        tags.append(functional_status.replace("_", " "))
+
+    if planet.get("retrograde"):
+        tags.append("retrograde")
+
+    return tags
+
+
+def summarize_planet_line(planet_name: str, kundli: Dict[str, Any], planet: Dict[str, Any]) -> str:
+    sign = planet.get("sign", "Unknown sign")
+    house = planet.get("house", "?")
+    nakshatra = (planet.get("nakshatra") or {}).get("name")
+    pada = (planet.get("nakshatra") or {}).get("pada")
+    tags = build_condition_tags(planet_name, kundli, planet)
+    tag_text = f" [{'; '.join(tags)}]" if tags else ""
+    nakshatra_text = f", {nakshatra} pada {pada}" if nakshatra and pada else (f", {nakshatra}" if nakshatra else "")
+    return f"- {planet_name}: {sign} {house}H{nakshatra_text}{tag_text}."
+
+
+def summarize_house_lord_lines(kundli: Dict[str, Any], planet_lookup: Dict[str, Dict[str, Any]]) -> list[str]:
+    house_lords = (kundli.get("yoga_analysis") or {}).get("house_lords") or {}
+    entries: list[str] = []
+    for house_no in range(1, 13):
+        house_info = house_lords.get(str(house_no), {})
+        lord_name = canonical_planet_name(house_info.get("lord"))
+        lord = planet_lookup.get(lord_name)
+        if lord:
+            entries.append(f"{house_no}L {lord_name}->{lord.get('sign')} {lord.get('house')}H")
+        elif lord_name:
+            entries.append(f"{house_no}L {lord_name}")
+
+    lines: list[str] = []
+    chunk_size = 4
+    for idx in range(0, len(entries), chunk_size):
+        lines.append("- " + "; ".join(entries[idx: idx + chunk_size]) + ".")
+    return lines
+
+
+def summarize_yogas(kundli: Dict[str, Any]) -> str:
+    yoga_analysis = kundli.get("yoga_analysis") or {}
+    detected = [normalize_yoga_name(name) for name in yoga_analysis.get("detected", [])]
+    conditional = [normalize_yoga_name(name) for name in yoga_analysis.get("conditional_detected", [])]
+
+    parts = []
+    if detected:
+        parts.append(f"Present: {', '.join(detected)}")
+    if conditional:
+        parts.append(f"Conditional: {', '.join(conditional)}")
+    return "; ".join(parts) if parts else "No major named yoga flagged strongly in the computed analysis."
+
+
+def summarize_dasha_timeline(kundli: Dict[str, Any]) -> tuple[str, str]:
+    current_dasha = kundli.get("current_dasha") or {}
+    maha = current_dasha.get("mahadasha") or {}
+    antara = current_dasha.get("antardasha") or {}
+    pratya = current_dasha.get("pratyantardasha") or {}
+
+    current_line = (
+        f"{maha.get('planet', 'Unknown')} Mahadasha ({format_date_range(maha.get('start'), maha.get('end'))})"
+    )
+    if antara.get("planet"):
+        current_line += (
+            f" > {antara.get('planet')} Antardasha "
+            f"({format_date_range(antara.get('start'), antara.get('end'))})"
+        )
+    if pratya.get("planet"):
+        current_line += (
+            f" > {pratya.get('planet')} Pratyantardasha "
+            f"({format_date_range(pratya.get('start'), pratya.get('end'))})"
+        )
+
+    upcoming_parts: list[str] = []
+    current_maha = next(
+        (
+            maha_entry
+            for maha_entry in kundli.get("vimshottari_dasha", {}).get("mahadashas", [])
+            if maha_entry.get("is_current")
+        ),
+        None,
+    )
+    if current_maha:
+        antardashas = current_maha.get("antardashas", [])
+        current_antardasha_idx = next(
+            (idx for idx, entry in enumerate(antardashas) if entry.get("is_current")),
+            None,
+        )
+        if current_antardasha_idx is not None:
+            for entry in antardashas[current_antardasha_idx + 1: current_antardasha_idx + 3]:
+                upcoming_parts.append(
+                    f"{current_maha.get('planet')} > {entry.get('planet')} ({format_date_range(entry.get('start'), entry.get('end'))})"
+                )
+
+    next_maha = find_next_mahadasha(kundli)
+    if next_maha:
+        upcoming_parts.append(
+            f"{next_maha.get('planet')} Mahadasha ({format_date_range(next_maha.get('start'), next_maha.get('end'))})"
+        )
+
+    return current_line, "; ".join(upcoming_parts) if upcoming_parts else "No later period data available."
+
+
+def summarize_divisional_notes(kundli: Dict[str, Any]) -> list[str]:
+    notes: list[str] = []
+    divisional_charts = kundli.get("divisional_charts") or {}
+
+    for chart_code, focal_house, focus_planets in [
+        ("D9", 7, ["Sun", "Venus", "Jupiter"]),
+        ("D10", 10, ["Sun", "Mercury", "Saturn"]),
+    ]:
+        chart = divisional_charts.get(chart_code)
+        if not chart:
+            continue
+
+        planets = {
+            canonical_planet_name(planet.get("name")): planet
+            for planet in chart.get("planets", [])
+            if "error" not in planet
+        }
+        asc_sign = (chart.get("ascendant") or {}).get("sign", "Unknown")
+        focal = (chart.get("house_lords") or {}).get(str(focal_house), {})
+        focal_lord = canonical_planet_name(focal.get("lord"))
+        focal_placement = planets.get(focal_lord)
+
+        highlight_bits = [f"ascendant {asc_sign}"]
+        if focal_lord and focal_placement:
+            highlight_bits.append(
+                f"{focal_house}H lord {focal_lord} in {focal_placement.get('sign')} {focal_placement.get('house')}H"
+            )
+
+        for name in focus_planets:
+            placement = planets.get(name)
+            if placement:
+                highlight_bits.append(f"{name} in {placement.get('sign')} {placement.get('house')}H")
+
+        notes.append(f"- {chart_code}: " + "; ".join(highlight_bits) + ".")
+
+    return notes
+
+
+def summarize_aspect_notes(kundli: Dict[str, Any]) -> list[str]:
+    aspect_data = (kundli.get("vedic_aspects") or {}).get("by_planet") or {}
+    lines: list[str] = []
+
+    for name in ["Mars", "Jupiter", "Saturn", "Rahu", "Ketu"]:
+        source_key = "TrueNode" if name == "Rahu" and "TrueNode" in aspect_data else name
+        planet_aspects = aspect_data.get(source_key)
+        if not planet_aspects:
+            continue
+
+        snippets = []
+        for aspect in planet_aspects.get("aspects", [])[:3]:
+            target = f"{aspect.get('target_house')}H {aspect.get('target_sign')}"
+            target_planets = aspect.get("target_planets") or []
+            if target_planets:
+                target += f" ({', '.join(target_planets)})"
+            snippets.append(target)
+
+        if snippets:
+            lines.append(f"- {name} aspects " + "; ".join(snippets) + ".")
+
+    return lines
+
+
+def build_detailed_chart_summary(kundli: Dict[str, Any], profile: Optional[Dict[str, Any]] = None) -> str:
+    profile = profile or {}
+    planet_lookup = build_planet_lookup(kundli)
+    ascendant = kundli.get("ascendant") or {}
+    asc_sign = ascendant.get("sign", "Unknown")
+    asc_ruler = SIGN_RULERS.get(asc_sign, "Unknown")
+    asc_keywords = SIGN_KEYWORDS.get(asc_sign, "mixed")
+    janma = kundli.get("janma_nakshatra") or {}
+    current_line, upcoming_line = summarize_dasha_timeline(kundli)
+
+    lines = ["CHART SUMMARY"]
+
+    if profile.get("full_name"):
+        lines.append(f"Native: {profile.get('full_name')}")
+
+    birth_context = kundli.get("input") or {}
+    local_datetime = birth_context.get("local_datetime")
+    timezone_name = birth_context.get("timezone")
+    if local_datetime or timezone_name:
+        birth_line = "Birth context: "
+        if local_datetime:
+            birth_line += str(local_datetime)
+        if timezone_name:
+            birth_line += f" ({timezone_name})" if local_datetime else str(timezone_name)
+        lines.append(birth_line)
+
+    lines.append(f"Lagna: {asc_sign} ({asc_ruler}-ruled) — {asc_keywords}.")
+    if janma.get("name"):
+        lines.append(
+            f"Janma Nakshatra: {janma.get('name')} pada {janma.get('pada')} ({janma.get('lord')}-ruled)."
+        )
+
+    lines.append("Planetary placements:")
+    for planet_name in PLANET_DISPLAY_ORDER:
+        planet = planet_lookup.get(planet_name)
+        if planet:
+            lines.append(summarize_planet_line(planet_name, kundli, planet))
+
+    house_lord_lines = summarize_house_lord_lines(kundli, planet_lookup)
+    if house_lord_lines:
+        lines.append("House lord map:")
+        lines.extend(house_lord_lines)
+
+    lines.append(f"Active yogas: {summarize_yogas(kundli)}")
+    lines.append(f"Current period: {current_line}")
+    lines.append(f"Upcoming periods: {upcoming_line}")
+
+    divisional_notes = summarize_divisional_notes(kundli)
+    if divisional_notes:
+        lines.append("Divisional notes:")
+        lines.extend(divisional_notes)
+
+    aspect_notes = summarize_aspect_notes(kundli)
+    if aspect_notes:
+        lines.append("Aspect highlights:")
+        lines.extend(aspect_notes)
+
+    return "\n".join(lines)
+
+
+def ensure_chart_summary_in_memory(chain: ConversationChain, chart_summary: str) -> None:
+    if not chart_summary:
+        return
+    for message in chain.memory.chat_memory.messages:
+        if isinstance(message, SystemMessage) and message.content.strip() == chart_summary.strip():
+            return
+    chain.memory.chat_memory.add_message(SystemMessage(content=chart_summary))
+
+
+def build_inline_chart_prompt(
+    chain: ConversationChain,
+    chart_summary: Optional[str],
+    final_input: str,
+) -> str:
+    prompt_parts = []
+    if chart_summary:
+        prompt_parts.append(chart_summary)
+
+    history_lines = []
+    for message in chain.memory.chat_memory.messages:
+        if isinstance(message, SystemMessage):
+            continue
+        if isinstance(message, HumanMessage) and message.content.strip() == "My birth details":
+            continue
+        if isinstance(message, HumanMessage):
+            history_lines.append(f"User: {message.content}")
+        elif isinstance(message, AIMessage):
+            history_lines.append(f"Assistant: {message.content}")
+
+    if history_lines:
+        prompt_parts.append("RECENT CONVERSATION\n" + "\n".join(history_lines[-4:]))
+
+    prompt_parts.append(final_input)
+    return "\n\n".join(part for part in prompt_parts if part)
+
+
 def build_prompt_kundli_context(kundli: Dict[str, Any], user_query: Optional[str] = None) -> Dict[str, Any]:
     query = (user_query or "").lower()
     wants_marriage = any(
@@ -862,6 +1254,7 @@ def get_or_create_chain(session_id: str) -> ConversationChain:
 def build_kundli_prompt(kundli: Dict[str, Any], profile: Optional[Dict[str, Any]], today: datetime) -> str:
     response_style = build_response_style_instructions(is_first_message=True)
     reasoning_framework = build_astrology_reasoning_framework(is_first_message=True)
+    chart_summary = build_detailed_chart_summary(kundli, profile)
     core_rules = (
         "You are writing the very first message inside Nakshatra AI after a user submits birth details.\n"
         "You are a master Vedic astrologer (Jyotishi) with decades of practice. Use only the provided chart data. Do not use western terminology.\n\n"
@@ -905,7 +1298,7 @@ def build_kundli_prompt(kundli: Dict[str, Any], profile: Optional[Dict[str, Any]
 {json.dumps({"full_name": (profile or {}).get("full_name"), "first_name": get_first_name((profile or {}).get("full_name"))}, indent=2)}
 
 ### Chart Context
-{json.dumps(build_first_message_context(kundli, profile), indent=2)}
+{chart_summary}
 
 ### Today's Context
 Date: {today.strftime('%Y-%m-%d')}
@@ -917,7 +1310,9 @@ Date: {today.strftime('%Y-%m-%d')}
 def prune_memory_keep_last(chain: ConversationChain, keep_last_pairs: int = 1):
     msgs = chain.memory.chat_memory.messages
     if msgs:
-        chain.memory.chat_memory.messages = msgs[-(keep_last_pairs*2):]  # last user+assistant
+        system_msgs = [msg for msg in msgs if isinstance(msg, SystemMessage)]
+        conversation_msgs = [msg for msg in msgs if not isinstance(msg, SystemMessage)]
+        chain.memory.chat_memory.messages = system_msgs + conversation_msgs[-(keep_last_pairs*2):]
 # ----- Endpoints -----
 
 
@@ -950,6 +1345,8 @@ async def kundli(request: Request):
     # Store kundli per session (in memory)
     store_kundli(session_id, kundli)
     logger.info("Stored kundli for session_id=%s", session_id)
+    chart_summary = build_detailed_chart_summary(kundli, {"full_name": payload.get("fullName")})
+    store_chart_summary(session_id, chart_summary)
     
     # Store session data in MongoDB
     try:
@@ -989,14 +1386,7 @@ async def kundli(request: Request):
     # Create or get the conversation chain for this session and add kundli as a system message in its memory
     chain = get_or_create_chain(session_id)
     try:
-        intro = (
-            "This is the user's condensed Kundli data for reference during the chat:\n"
-            f"{json.dumps(build_prompt_kundli_context(kundli), ensure_ascii=False)}"
-        )
-        # Add a system-style message into the session's memory so the chain can use it later
-        # Use SystemMessage so it's distinguishable in memory
-        chain.memory.chat_memory.add_user_message("My birth details")
-        chain.memory.chat_memory.add_message(SystemMessage(content=intro))
+        ensure_chart_summary_in_memory(chain, chart_summary)
     except Exception:
         # memory addition is not critical; log and continue
         logger.exception("Failed to add kundli to session memory (non-fatal)")
@@ -1068,49 +1458,43 @@ async def chat(request: Request):
     except Exception as e:
         logger.exception("Failed to save user message to MongoDB (non-fatal): %s", e)
 
-    # append kundli if available for the session (keep a compact snippet)
+    # Attach preserved chart summary as system context when available.
     kundli = get_kundli(session_id)
+    chart_summary = get_chart_summary(session_id)
     if kundli:
-        prompt_kundli = build_prompt_kundli_context(kundli, user_query)
-        kundli_str = json.dumps(prompt_kundli, ensure_ascii=False)
+        if not chart_summary:
+            chart_summary = build_detailed_chart_summary(kundli)
+            store_chart_summary(session_id, chart_summary)
+        ensure_chart_summary_in_memory(chain, chart_summary)
         response_style = build_response_style_instructions(user_query=user_query)
-        reasoning_framework = build_astrology_reasoning_framework(user_query=user_query)
         final_input = (
-            "You are a master Vedic astrologer (Jyotishi) with decades of practical experience.\n"
-            "Use only the provided Kundli data. Do not invent dates, dashas, yogas, transits, remedies, or chart facts.\n\n"
-            f"{reasoning_framework}\n"
-            "### Non-Negotiable Rules\n"
-            "1. Treat the natal chart as primary.\n"
-            "2. Use D9 only as supporting evidence for marriage/spouse/dharma questions when it is provided.\n"
-            "3. Use D10 only as supporting evidence for career/profession/public-role questions when it is provided.\n"
-            "4. For timing questions, cite exact dasha dates from the provided data and give concrete windows only when the data supports them.\n"
-            "5. Treat dasha-lord sign and house as natal placement, not house rulership. Rahu and Ketu are placements, not house lords.\n"
-            "6. When aspects are relevant, explicitly name which planet aspects which house or planet and whether it is a standard or special aspect.\n"
-            "7. If you mention exalted, debilitated, own-sign, moolatrikona, combust, functional benefic, or functional malefic, explain plainly what that means in this person's life.\n"
-            "8. For children questions, use the 5th house, 5th lord, Jupiter, occupants, and relevant aspects. Never call the 12th house the house of children.\n"
-            "9. For siblings questions, use the 3rd house for younger siblings and the 11th for elder siblings. Never call the 5th house the sibling house.\n"
-            "10. If the chart is mixed, say the result is mixed. Do not pretend weak evidence is certain.\n"
-            "11. Do not answer requests for death prediction, cause of death, or exact death timing. Briefly refuse and offer safer guidance such as health, longevity habits, or difficult periods instead.\n\n"
-            "### Response Style\n"
-            "- Sound like a skilled astrologer, not a hesitant chatbot.\n"
-            "- Be specific and evidence-based: prefer 'the chart strongly shows' over vague hedging.\n"
-            "- Connect every important conclusion back to house, lord, planet, aspect, yoga, dasha, or divisional-chart evidence.\n"
-            "- If the user asks for detail, go deep and structured rather than becoming repetitive.\n"
-            "- When the question naturally involves obstacles, delay, emotional strain, or a desire for improvement, end with 2 to 4 actionable Vedic remedies such as mantra, charity, fasting, worship, or discipline-based practices.\n"
-            "- Mention gemstones only when the chart support is clear and the recommendation is not reckless.\n"
-            "- Use Markdown and make the answer readable and complete. No tables.\n\n"
+            "You are a seasoned Vedic astrologer (Jyotishi).\n"
+            "Use only the chart summary and recent conversation below.\n"
+            "Do not invent chart facts, yogas, dates, or remedies.\n"
+            "Answer directly and support your conclusions with the most relevant placements, house lords, yogas, aspects, dashas, or divisional-chart notes.\n"
+            "If the chart is mixed, say so clearly.\n"
+            "If asked about death prediction or exact death timing, refuse briefly and redirect to safer guidance.\n"
+            "Use readable Markdown and no tables.\n\n"
             f"{response_style}\n"
-            f"User Query: {user_query}\n\n"
-            f"Reference Kundli Data:\n{kundli_str}"
+            f"User Query: {user_query}"
         )
     else:
         final_input = user_query
     prune_memory_keep_last(chain, keep_last_pairs=1)
     # run the conversation chain
     try:
-        # Note: ConversationChain.predict may be synchronous depending on LangChain adapter
-        resp_text = chain.predict(input=final_input).strip()
+        prompt_payload = build_inline_chart_prompt(chain, chart_summary if kundli else None, final_input)
+        llm_resp = llm.invoke(prompt_payload)
+        resp_text = getattr(llm_resp, "content", str(llm_resp)).strip()
+        if not resp_text:
+            retry_resp = llm.invoke(prompt_payload)
+            resp_text = getattr(retry_resp, "content", str(retry_resp)).strip()
+        if not resp_text:
+            raise ValueError("Empty response from LLM")
         resp_text = complete_if_truncated(resp_text)
+        chain.memory.chat_memory.add_user_message(user_query)
+        chain.memory.chat_memory.add_ai_message(resp_text)
+        prune_memory_keep_last(chain, keep_last_pairs=1)
     except Exception:
         logger.exception("ConversationChain failed for session %s", session_id)
         raise HTTPException(status_code=500, detail="LLM conversation failed")

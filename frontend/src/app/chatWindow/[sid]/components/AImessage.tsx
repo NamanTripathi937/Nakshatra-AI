@@ -160,7 +160,7 @@ export default function AIMessage({ id, content, isNew = false }: AIMessageProps
           ),
           thead: ({ node, ...props }) => (
             <thead
-              className="bg-gradient-to-r from-amber-500/80 via-orange-400/70 to-sky-500/75 text-slate-950"
+              className="bg-gradient-to-r from-slate-800/95 via-blue-900/85 to-cyan-800/80 text-slate-100"
               {...props}
             />
           ),
