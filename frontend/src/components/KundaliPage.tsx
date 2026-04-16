@@ -1,8 +1,8 @@
 "use client"
 
-import React, { useState, useRef, useEffect } from "react"
+import React, { useState, useEffect } from "react"
 import KundaliForm from "./KundaliForm"
-import { generateNewSessionId, loadMessagesForSession, saveMessagesForSession, formatBirthDetails } from "@/lib/utils"
+import { formatBirthDetails, generateNewSessionId, getBackendUrl, saveMessagesForSession } from "@/lib/utils"
 import { useRouter } from "next/navigation"
 
 
@@ -13,114 +13,47 @@ interface Message {
 }
 
 export default function KundaliPage() {
-  const [formSubmitted, setFormSubmitted] = useState(false)
   const [messages, setMessages] = useState<Message[]>([])
-  const [inputMessage, setInputMessage] = useState("")
   const [loading, setLoading] = useState(false)
 
   const router = useRouter();
-  // const newMessage = inputMessage.trim();
-  
-
-  // const storagePrefix = `nakshatra:session:${session_id}`
-  
+  const backendUrl = getBackendUrl();
 
   useEffect(() => {
-    fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/ping`).catch(() => { })
+    fetch(`${backendUrl}/ping`).catch(() => { })
     console.log('Sent ping to backend')
-  }, [])
+  }, [backendUrl])
 
   const handleFormSubmit = async (data: any) => {
-    if (loading) return;   //double click prevention
+    if (loading) return;
     setLoading(true);
-    // Generate a NEW session ID for each kundali submission
+
     const sessionId = generateNewSessionId();
-    // Store it in localStorage so chat page can use it
     if (typeof localStorage !== "undefined") {
       localStorage.setItem("nakshatra_session_id", sessionId);
     }
+
     const formatted = formatBirthDetails(data);
     const userMsg: Message = {
       id: Date.now().toString(),
       sender: "user",
       content: `We have received your following Birth Details:\n\n${formatted}\n\nFor privacy purposes, we are not saving it anywhere ✅`,
     };
-    setFormSubmitted(true)
 
-    // Read any persisted messages to avoid accidental overwrite
-    // const persistMessages = loadMessagesForSession(sessionId) || [];
     const afterPersistMessages = [userMsg];
     console.log("Existing persisted messages for session", afterPersistMessages);
-
-    // Optimistically persist user message immediately (canonical key) so chat page shows it right away
-    
-    // setMessages(prev => [
-    //   ...prev,
-    //   {
-    //     id: Date.now().toString(),
-    //     sender: "user",
-    //     content: `We have received your following Birth Details : ${data} . For privacy purposes, we are not saving it anywhere ✅`,
-    //   },
-    // ])
-
-    // // setLoading(true);
-    // console.log("Loaded persisted messages for session", persisted);
-    // const afterPersistMessages = [...persisted, userMsg];
-    // console.log("Persisting messages for session", afterPersistMessages);
 
     try {
       saveMessagesForSession(sessionId, afterPersistMessages);
       setMessages(afterPersistMessages);
-      // Navigate to chat window right away so user sees the first message immediately
       router.push(`/chatWindow/${sessionId}`);
-      // const res = await fetch("/api/kundli", {
-      //   method: "POST",
-      //   headers: { "Content-Type": "application/json", "X-Session-Id": session_id },
-      //   body: JSON.stringify(data),
-      // })
-
-      // let raw = await res.text()
-
-      // try {
-      //   const parsed = JSON.parse(raw)
-      //   if (Array.isArray(parsed)) raw = parsed.join("\n")
-      // } catch (e) {
-      //   console.log(e)
-      // }
-
-      // setMessages(prev => [
-      //   ...prev,
-      //   {
-      //     id: (Date.now() + 1).toString(),
-      //     sender: "ai",
-      //     content: raw,
-      //   },
-      // ])
-      // router.push(`/chatWindow/${session_id}`);
     } catch (e) {
-      // setMessages(prev => [
-      //   ...prev,
-      //   {
-      //     id: (Date.now() + 1).toString(),
-      //     sender: "ai",
-      //     content: "⚠️ Error fetching Kundli details. Please try again later.",
-      //   },
-      // ])
       console.warn("failed to persist user message before navigation", e);
-      // still navigate
       router.push(`/chatWindow/${sessionId}`);
+    }
 
-    } 
-    // finally {
-    //   localStorage.setItem(storagePrefix, JSON.stringify({
-    //     createdAt: Date.now(),
-    //     messages: messages
-    //   }));
-    //   setLoading(false)
-    // }
-    // setLoading(true);
     try {
-      const res = await fetch("/api/kundli", {
+      const res = await fetch(`${backendUrl}/kundli`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -139,10 +72,8 @@ export default function KundaliPage() {
         content: result.response || "No response from AI.",
       };
 
-      // Append AI message to the persisted array and save again
       const finalMessages = [...afterPersistMessages, aiMsg];
       saveMessagesForSession(sessionId, finalMessages);
-      // update local state (in this component it won't be visible because we navigated, but other tabs/pages will read from storage)
       setMessages(finalMessages);
     } catch (err) {
       console.error("kundli API error", err);
@@ -150,7 +81,6 @@ export default function KundaliPage() {
         id: (Date.now() + 2).toString(),
         sender: "ai",
         content: "⚠️ Error fetching Kundli details. Please try again later.",
-        
       };
       const finalMessages = [...afterPersistMessages, errMsg];
       saveMessagesForSession(sessionId, finalMessages);

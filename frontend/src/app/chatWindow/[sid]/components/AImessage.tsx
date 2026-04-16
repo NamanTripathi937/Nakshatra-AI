@@ -58,38 +58,127 @@ export default function AIMessage({ id, content, isNew = false }: AIMessageProps
   const typed = useTypingEffect(content, id, isNew)
 
   return (
-    <div className="prose prose-invert text-sm leading-relaxed max-w-none">
+    <div className="max-w-none text-[15px] leading-7 text-slate-100">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         rehypePlugins={[rehypeHighlight, rehypeRaw]}
         components={{
+          h1: ({ node, ...props }) => (
+            <h1
+              className="mb-4 bg-gradient-to-r from-amber-200 via-white to-sky-200 bg-clip-text text-3xl font-semibold leading-tight text-transparent"
+              {...props}
+            />
+          ),
+          h2: ({ node, ...props }) => (
+            <h2
+              className="mb-4 border-b border-white/10 pb-3 text-2xl font-semibold leading-tight tracking-tight text-white"
+              {...props}
+            />
+          ),
+          h3: ({ node, ...props }) => (
+            <h3
+              className="mt-6 mb-3 flex items-center gap-2 text-base font-semibold tracking-wide text-amber-100"
+              {...props}
+            />
+          ),
+          p: ({ node, ...props }) => (
+            <p
+              className="mb-4 text-[15px] leading-7 text-slate-200"
+              {...props}
+            />
+          ),
+          strong: ({ node, ...props }) => (
+            <strong
+              className="font-semibold text-white"
+              {...props}
+            />
+          ),
+          ul: ({ node, ...props }) => (
+            <ul
+              className="mb-4 list-disc space-y-2 pl-5 marker:text-amber-300"
+              {...props}
+            />
+          ),
+          ol: ({ node, ...props }) => (
+            <ol
+              className="mb-4 list-decimal space-y-2 pl-5 marker:text-amber-300"
+              {...props}
+            />
+          ),
+          li: ({ node, ...props }) => (
+            <li
+              className="pl-1 text-slate-200"
+              {...props}
+            />
+          ),
+          blockquote: ({ node, ...props }) => (
+            <blockquote
+              className="my-5 rounded-2xl border border-amber-200/15 bg-white/5 px-4 py-3 text-slate-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
+              {...props}
+            />
+          ),
+          hr: ({ node, ...props }) => (
+            <hr
+              className="my-5 border-white/10"
+              {...props}
+            />
+          ),
+          a: ({ node, ...props }) => (
+            <a
+              className="font-medium text-sky-300 underline decoration-sky-400/60 underline-offset-4 transition-colors hover:text-sky-200"
+              {...props}
+            />
+          ),
+          code: ({ node, className, children, ...props }) => {
+            const isBlock = Boolean(className)
+
+            if (isBlock) {
+              return (
+                <code
+                  className={`${className} block overflow-x-auto rounded-2xl border border-white/10 bg-black/40 p-4 text-[13px] leading-6 text-slate-100`}
+                  {...props}
+                >
+                  {children}
+                </code>
+              )
+            }
+
+            return (
+              <code
+                className="rounded-md border border-white/10 bg-white/8 px-1.5 py-0.5 text-[13px] text-amber-100"
+                {...props}
+              >
+                {children}
+              </code>
+            )
+          },
           table: ({ node, ...props }) => (
             <table
-              className="w-full border-collapse rounded-xl overflow-hidden shadow-md my-4"
+              className="my-4 w-full overflow-hidden rounded-2xl border border-white/10 border-collapse shadow-md"
               {...props}
             />
           ),
           thead: ({ node, ...props }) => (
             <thead
-              className="bg-gradient-to-r from-purple-700 to-indigo-600 text-white"
+              className="bg-gradient-to-r from-slate-800/95 via-blue-900/85 to-cyan-800/80 text-slate-100"
               {...props}
             />
           ),
           th: ({ node, ...props }) => (
             <th
-              className="px-4 py-2 text-left font-semibold border border-gray-700"
+              className="border border-white/10 px-4 py-2 text-left font-semibold"
               {...props}
             />
           ),
           td: ({ node, ...props }) => (
             <td
-              className="px-4 py-2 border border-gray-700 text-gray-200"
+              className="border border-white/10 px-4 py-2 text-slate-200"
               {...props}
             />
           ),
           tr: ({ node, ...props }) => (
             <tr
-              className="odd:bg-gray-800 even:bg-gray-900 hover:bg-gray-700 transition-colors"
+              className="odd:bg-white/4 even:bg-white/[0.02] transition-colors hover:bg-white/8"
               {...props}
             />
           ),
