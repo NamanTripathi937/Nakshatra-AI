@@ -6,8 +6,10 @@ import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Textarea } from "@/components/ui/textarea"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Send } from "lucide-react"
+import { HeartHandshake, LayoutGrid, Send } from "lucide-react"
 import AIMessage from './components/AImessage'
+import ChartViewer from "./components/ChartViewer"
+import CompatibilityViewer from "./components/CompatibilityViewer"
 import { getBackendUrl, loadMessagesForSession, messagesKeyForSession, saveMessagesForSession } from "@/lib/utils"
 import { useParams } from "next/navigation"
 
@@ -37,6 +39,8 @@ export default function ChatComponent() {
   const scrollAreaRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const [isWaitingForAI, setIsWaitingForAI] = useState(false)
+  const [isChartViewerOpen, setIsChartViewerOpen] = useState(false)
+  const [isCompatibilityOpen, setIsCompatibilityOpen] = useState(false)
   const isFetchingChat = useRef(false) // guard to prevent kundli-detection effect from clearing flag during chat API calls
 
    const load = useCallback(() => {
@@ -265,6 +269,18 @@ export default function ChatComponent() {
 
   return (
     <div className="flex flex-col h-screen text-white overflow-hidden">
+      <ChartViewer
+        backendUrl={backendUrl}
+        open={isChartViewerOpen}
+        onClose={() => setIsChartViewerOpen(false)}
+        sessionId={sid}
+      />
+      <CompatibilityViewer
+        backendUrl={backendUrl}
+        open={isCompatibilityOpen}
+        onClose={() => setIsCompatibilityOpen(false)}
+        sessionId={sid}
+      />
 
       {/* Chat Messages */}
       <div className="flex-1 overflow-hidden mt-2 mb-1 pb-1">
@@ -377,9 +393,29 @@ export default function ChatComponent() {
             </form>
             <div className="flex items-center justify-between text-xs text-gray-400 mt-2">
               <span>Enter to send • Shift+Enter for new line</span>
-              <div className="flex items-center space-x-1">
-                <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                <span>AI Online</span>
+              <div className="flex items-center gap-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsChartViewerOpen(true)}
+                  className="h-8 border-blue-500/30 bg-slate-900/80 px-3 text-xs text-slate-200 hover:bg-slate-800 hover:text-white"
+                >
+                  <LayoutGrid className="h-3.5 w-3.5" />
+                  <span className="ml-1.5">View Charts</span>
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsCompatibilityOpen(true)}
+                  className="h-8 border-rose-500/30 bg-slate-900/80 px-3 text-xs text-slate-200 hover:bg-slate-800 hover:text-white"
+                >
+                  <HeartHandshake className="h-3.5 w-3.5" />
+                  <span className="ml-1.5">Kundli Milan</span>
+                </Button>
+                <div className="flex items-center space-x-1">
+                  <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                  <span>AI Online</span>
+                </div>
               </div>
             </div>
           </Card>
