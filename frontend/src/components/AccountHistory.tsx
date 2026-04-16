@@ -9,6 +9,7 @@ import { CalendarDays, Clock3, History, Loader2, MessageSquareText, Sparkles, X 
 import { buildAuthHeaders, useAuth } from "@/lib/auth"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
+import { ScrollArea } from "@/components/ui/scroll-area"
 
 type AccountHistoryProps = {
   backendUrl: string
@@ -235,16 +236,13 @@ export default function AccountHistory({
 
   if (variant === "embedded") {
     return (
-      <section className="rounded-3xl border border-white/10 bg-slate-950/65 p-5 text-white">
+      <section className="rounded-3xl border border-white/10 bg-slate-950/65 p-5 text-white lg:h-[440px] lg:min-h-0">
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
             <div className="inline-flex items-center gap-2 text-sm font-semibold text-white">
               <History className="h-4 w-4 text-cyan-300" />
               Recent Readings
             </div>
-            <p className="mt-1 text-sm text-slate-400">
-              Reopen any saved kundli and continue where you left off.
-            </p>
           </div>
           <Button
             type="button"
@@ -256,7 +254,11 @@ export default function AccountHistory({
             New Reading
           </Button>
         </div>
-        {content}
+        <ScrollArea className="lg:h-[calc(100%-4.75rem)]">
+          <div className="pr-1">
+            {content}
+          </div>
+        </ScrollArea>
       </section>
     )
   }

@@ -67,6 +67,10 @@ MONGODB_URI=mongodb://localhost:27017/
 Create `.env.local` file in `frontend/`:
 ```env
 NEXT_PUBLIC_BACKEND_URL=http://localhost:8000
+NEXT_PUBLIC_GOOGLE_CLIENT_ID=your_google_client_id_here
+NEXT_PUBLIC_ADSENSE_CLIENT_ID=ca-pub-your_adsense_client_id_here
+NEXT_PUBLIC_ADSENSE_CHAT_BANNER_SLOT=your_banner_slot_id_here
+NEXT_PUBLIC_ADSENSE_CHAT_INTERSTITIAL_SLOT=your_interstitial_slot_id_here
 ```
 
 ### 4. Run the Application

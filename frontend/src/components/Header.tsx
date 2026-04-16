@@ -31,19 +31,19 @@ export default function Header() {
             onClose={() => setBillingOpen(false)}
           />
           <header className="backdrop-blur-md border-b border-gray-700 shadow-sm mb-4 bg-black/20">
-            <div className="flex items-center justify-between gap-3 px-4 py-3 sm:px-6 sm:py-4">
-              {/* Home Icon */}
-              <Home
-                className="h-5 w-5 shrink-0 text-white hover:text-blue-400 cursor-pointer sm:h-6 sm:w-6"
-                onClick={() => (window.location.href = '/')}
-              />
+            <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 px-4 py-3 sm:px-6 sm:py-4">
+              <div className="flex items-center justify-start">
+                <Home
+                  className="h-5 w-5 shrink-0 cursor-pointer text-white hover:text-blue-400 sm:h-6 sm:w-6"
+                  onClick={() => (window.location.href = '/')}
+                />
+              </div>
 
-              {/* Title */}
-              <h1 className="text-lg font-bold bg-gradient-to-r from-white to-blue-300 bg-clip-text text-transparent sm:text-2xl">
+              <h1 className="text-center text-lg font-bold bg-gradient-to-r from-white to-blue-300 bg-clip-text text-transparent sm:text-2xl">
                 ✦ N A K S H A T R A ✦
               </h1>
 
-              <div className="flex min-w-[100px] items-center justify-end gap-2 sm:min-w-[180px]">
+              <div className="flex items-center justify-end gap-2">
                 {user ? (
                   <>
                     <div className="hidden text-right sm:block">

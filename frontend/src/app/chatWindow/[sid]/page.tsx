@@ -6,8 +6,11 @@ import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Textarea } from "@/components/ui/textarea"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import AdSenseUnit from "@/components/AdSenseUnit"
 import BillingPlansModal from "@/components/BillingPlansModal"
+import ChatInterstitialAd from "@/components/ChatInterstitialAd"
 import GoogleSignInButton from "@/components/GoogleSignInButton"
+import SponsoredNativeCard from "@/components/SponsoredNativeCard"
 import { buildAuthHeaders, useAuth } from "@/lib/auth"
 import { Crown, HeartHandshake, LayoutGrid, Send } from "lucide-react"
 import AIMessage from './components/AImessage'
@@ -32,6 +35,7 @@ interface SessionResponse {
 
 const CHAT_TIMEOUT_MS = 90000
 const FREE_LIMIT_MESSAGE = "🔒 You’ve reached today’s free question limit. Upgrade to Premium for unlimited questions."
+const CHAT_BANNER_SLOT = process.env.NEXT_PUBLIC_ADSENSE_CHAT_BANNER_SLOT
 
 function shouldShowBillingCta(content: string): boolean {
   const normalized = String(content || "").toLowerCase()
@@ -39,6 +43,11 @@ function shouldShowBillingCta(content: string): boolean {
     normalized.includes("free question limit") ||
     normalized.includes("upgrade to premium for unlimited questions")
   )
+}
+
+function shouldInsertNativeAd(messageIndex: number, sender: Message["sender"], isPremium: boolean | undefined): boolean {
+  if (isPremium || sender !== "ai") return false
+  return (messageIndex + 1) % 4 === 0
 }
 
 function getFriendlyChatErrorMessage(error: unknown): string {
@@ -81,6 +90,7 @@ export default function ChatComponent() {
   const [isChartViewerOpen, setIsChartViewerOpen] = useState(false)
   const [isCompatibilityOpen, setIsCompatibilityOpen] = useState(false)
   const [isBillingOpen, setIsBillingOpen] = useState(false)
+  const [isInterstitialOpen, setIsInterstitialOpen] = useState(false)
   const [sessionError, setSessionError] = useState("")
   const [sessionLoading, setSessionLoading] = useState(true)
 
@@ -171,6 +181,10 @@ export default function ChatComponent() {
 
   const handleSendMessage = async () => {
     if (newMessage && token) {
+      const isPremiumUser = Boolean(user?.plan_access.is_premium)
+      const freeQuestionsUsedBefore = user?.plan_access.daily_questions_used ?? 0
+      const freeQuestionsRemainingBefore =
+        user?.plan_access.free_daily_questions_remaining ?? user?.plan_access.daily_questions_remaining ?? 0
       const userMsg: Message = {
         id: Date.now().toString(),
         content: newMessage,
@@ -228,6 +242,12 @@ export default function ChatComponent() {
           },
         ])
         await refreshUser()
+        if (!isPremiumUser && freeQuestionsRemainingBefore > 0) {
+          const usedAfterThisQuestion = freeQuestionsUsedBefore + 1
+          if (usedAfterThisQuestion % 3 === 0) {
+            setIsInterstitialOpen(true)
+          }
+        }
       } catch (error) {
         setMessages(prev => [
           ...prev,
@@ -269,6 +289,10 @@ export default function ChatComponent() {
         onClose={() => setIsCompatibilityOpen(false)}
         sessionId={sid}
       />
+      <ChatInterstitialAd
+        open={isInterstitialOpen && !user?.plan_access.is_premium}
+        onClose={() => setIsInterstitialOpen(false)}
+      />
       <BillingPlansModal
         backendUrl={backendUrl}
         open={isBillingOpen}
@@ -303,65 +327,70 @@ export default function ChatComponent() {
                 </div>
               </Card>
             ) : null}
-            {messages.map((msg) => (
-              <div
-                key={msg.id}
-                className={`flex ${msg.sender === "user" ? "justify-end" : "justify-start"
-                  }`}
-              >
+            {messages.map((msg, index) => (
+              <React.Fragment key={msg.id}>
                 <div
-                  className={`max-w-[80%] sm:max-w-[70%] ${msg.sender === "user" ? "order-2" : "order-1"
+                  className={`flex ${msg.sender === "user" ? "justify-end" : "justify-start"
                     }`}
                 >
-                  <Card
-                    className={`px-4 pt-2 pb-4 shadow-md ${msg.sender === "user"
-                      ? "bg-gray-800 text-white"
-                      : "bg-gray-900 border border-gray-700 text-white"
-                      }`}
-                  >
-                    {msg.sender === "ai" ? (
-                      <AIMessage
-                        id={msg.id}
-                        content={msg.content}
-                        isNew={msg.isNew ?? false}
-                      />
-                    ) : (
-                      <p className="text-sm leading-relaxed whitespace-pre-wrap">
-                        {msg.content}
-                      </p>
-                    )}
-                    {msg.sender === "ai" && shouldShowBillingCta(msg.content) && !user?.plan_access.is_premium ? (
-                      <div className="mt-3 flex justify-start">
-                        <Button
-                          type="button"
-                          onClick={() => setIsBillingOpen(true)}
-                          className="h-9 rounded-full bg-amber-500 px-4 text-slate-950 hover:bg-amber-400"
-                        >
-                          <Crown className="mr-2 h-4 w-4" />
-                          Go To Billing
-                        </Button>
-                      </div>
-                    ) : null}
-                  </Card>
-
-                  {/* Avatar */}
                   <div
-                    className={`flex mt-2 ${msg.sender === "user"
-                      ? "justify-end"
-                      : "justify-start"
+                    className={`max-w-[80%] sm:max-w-[70%] ${msg.sender === "user" ? "order-2" : "order-1"
                       }`}
                   >
-                    <div
-                      className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium ${msg.sender === "user"
-                        ? "bg-gradient-to-r from-black to-blue-400 text-white"
-                        : "bg-gradient-to-r from-gray-500 to-gray-1000 text-white"
+                    <Card
+                      className={`px-4 pt-2 pb-4 shadow-md ${msg.sender === "user"
+                        ? "bg-gray-800 text-white"
+                        : "bg-gray-900 border border-gray-700 text-white"
                         }`}
                     >
-                      {msg.sender === "user" ? "You" : "AI"}
+                      {msg.sender === "ai" ? (
+                        <AIMessage
+                          id={msg.id}
+                          content={msg.content}
+                          isNew={msg.isNew ?? false}
+                        />
+                      ) : (
+                        <p className="text-sm leading-relaxed whitespace-pre-wrap">
+                          {msg.content}
+                        </p>
+                      )}
+                      {msg.sender === "ai" && shouldShowBillingCta(msg.content) && !user?.plan_access.is_premium ? (
+                        <div className="mt-3 flex justify-start">
+                          <Button
+                            type="button"
+                            onClick={() => setIsBillingOpen(true)}
+                            className="h-9 rounded-full bg-amber-500 px-4 text-slate-950 hover:bg-amber-400"
+                          >
+                            <Crown className="mr-2 h-4 w-4" />
+                            Go To Billing
+                          </Button>
+                        </div>
+                      ) : null}
+                    </Card>
+
+                    <div
+                      className={`flex mt-2 ${msg.sender === "user"
+                        ? "justify-end"
+                        : "justify-start"
+                        }`}
+                    >
+                      <div
+                        className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium ${msg.sender === "user"
+                          ? "bg-gradient-to-r from-black to-blue-400 text-white"
+                          : "bg-gradient-to-r from-gray-500 to-gray-1000 text-white"
+                          }`}
+                      >
+                        {msg.sender === "user" ? "You" : "AI"}
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
+                {shouldInsertNativeAd(index, msg.sender, user?.plan_access.is_premium) ? (
+                  <div className="mx-auto max-w-[80%] sm:max-w-[70%]">
+                    <SponsoredNativeCard onOpenBilling={() => setIsBillingOpen(true)} />
+                  </div>
+                ) : null}
+              </React.Fragment>
             ))}
             {isWaitingForAI && (
               <div className="flex justify-start">
@@ -448,6 +477,20 @@ export default function ChatComponent() {
               </div>
             </div>
           </Card>
+          {!user?.plan_access.is_premium ? (
+            <Card className="mx-2 mb-2 rounded-2xl border border-cyan-400/12 bg-slate-950/45 p-2.5 shadow-lg shadow-black/20">
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-200">Sponsored</div>
+                <div className="text-[11px] text-slate-500">Free tier support</div>
+              </div>
+              <AdSenseUnit
+                slot={CHAT_BANNER_SLOT}
+                format="horizontal"
+                className="w-full min-h-[72px]"
+                style={{ minHeight: 72 }}
+              />
+            </Card>
+          ) : null}
         </div>
       </div>
     </div>

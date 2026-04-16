@@ -59,30 +59,82 @@ export default function KundaliPage() {
 
   };
   return (
-        <div className="flex flex-1 items-center justify-center px-4 py-8 sm:py-12">
+        <div className="flex flex-1 items-center justify-center px-4 py-6 sm:py-8 lg:h-full lg:px-8 lg:py-4 xl:px-12">
           <BillingPlansModal
             backendUrl={backendUrl}
             open={billingOpen}
             onClose={() => setBillingOpen(false)}
           />
-          <div className="grid w-full max-w-6xl gap-6 lg:grid-cols-[minmax(0,420px)_minmax(0,520px)] lg:items-center">
-            <section className="space-y-5">
-              <div className="space-y-3">
+          <div className="grid w-full gap-5 lg:h-full lg:grid-cols-[minmax(240px,1fr)_minmax(380px,440px)_minmax(260px,1fr)] lg:items-center">
+            <aside className="order-2 space-y-3 lg:order-1 lg:justify-self-start lg:w-full lg:max-w-[300px]">
+              <Card className="rounded-3xl border border-cyan-400/15 bg-slate-950/62 p-4 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
+                <div className="mb-2 text-sm font-semibold uppercase tracking-[0.18em] text-cyan-200">History</div>
+                <p className="text-sm leading-5 text-slate-300">
+                  Reopen your recent readings and continue from the same chart context whenever you come back.
+                </p>
+              </Card>
+
+              {user ? (
+                <AccountHistory backendUrl={backendUrl} variant="embedded" limit={3} />
+              ) : (
+                <Card className="rounded-3xl border border-white/10 bg-slate-950/58 p-4 text-white">
+                  <div className="text-base font-semibold">History unlocks after sign-in</div>
+                  <p className="mt-2 text-sm leading-5 text-slate-300">
+                    Once you sign in, your readings stay attached to your account and appear here for quick access.
+                  </p>
+                </Card>
+              )}
+            </aside>
+
+            <section className="order-1 flex justify-center lg:order-2 lg:justify-self-center">
+              <div className="w-full max-w-[440px]">
+                {authLoading ? (
+                  <Card className="rounded-[1.75rem] border border-cyan-400/15 bg-slate-950/62 p-5 text-sm text-slate-300 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] backdrop-blur-md sm:p-6">
+                    Restoring your account…
+                  </Card>
+                ) : !user ? (
+                  <Card
+                    id="auth-panel"
+                    className="rounded-[1.8rem] border border-cyan-400/15 bg-slate-950/62 p-5 text-center text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] backdrop-blur-md sm:p-5"
+                  >
+                    <div className="mb-3 inline-flex rounded-full border border-cyan-400/18 bg-cyan-500/8 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-cyan-200">
+                      Secure Account Access
+                    </div>
+                    <div className="mb-2 text-[1.45rem] font-semibold leading-tight sm:text-[1.75rem]">Sign In / Sign Up to begin</div>
+                    <p className="mx-auto mb-4 max-w-sm text-sm leading-5 text-slate-300">
+                      Your readings now live under your account instead of a temporary browser session.
+                    </p>
+                    <div className="mb-4 inline-flex rounded-full border border-white/10 bg-white/6 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-200">
+                      Continue With Google
+                    </div>
+                    <div className="flex justify-center">
+                      <GoogleSignInButton text="signup_with" />
+                    </div>
+                    {authError ? <p className="mt-4 text-sm text-rose-300">{authError}</p> : null}
+                  </Card>
+                ) : (
+                  <KundaliForm onSubmit={handleFormSubmit} loading={loading} />
+                )}
+              </div>
+            </section>
+
+            <aside className="order-3 space-y-4 lg:justify-self-end lg:w-full lg:max-w-[340px]">
+              <div className="space-y-2">
                 <div className="inline-flex rounded-full border border-cyan-400/20 bg-cyan-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-200">
                   Monetized Reading Flow
                 </div>
-                <h2 className="max-w-xl text-3xl font-semibold leading-tight text-white sm:text-4xl">
+                <h2 className="text-[1.9rem] font-semibold leading-tight text-white sm:text-[2.2rem]">
                   Secure your chart, track your usage, and unlock Premium astrology tools.
                 </h2>
-                <p className="max-w-xl text-sm leading-6 text-slate-300 sm:text-base">
+                <p className="text-sm leading-5 text-slate-300 sm:text-[15px]">
                   Free accounts get 5 questions per day and a concise kundli summary. Premium unlocks full readings, D9 and D10 charts, remedies, matchmaking, transit insights, and downloadable reports.
                 </p>
               </div>
 
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid gap-2.5">
                 <Card className="rounded-3xl border border-white/10 bg-slate-950/60 p-4 text-white">
-                  <div className="mb-2 text-lg font-semibold">Free</div>
-                  <ul className="space-y-2 text-sm text-slate-300">
+                  <div className="mb-2 text-base font-semibold">Free</div>
+                  <ul className="space-y-1.5 text-sm text-slate-300">
                     <li>5 questions per day</li>
                     <li>Basic kundli summary</li>
                     <li>Lagna chart access</li>
@@ -90,8 +142,8 @@ export default function KundaliPage() {
                   </ul>
                 </Card>
                 <Card className="rounded-3xl border border-amber-400/25 bg-[radial-gradient(circle_at_top,_rgba(251,191,36,0.18),_rgba(15,23,42,0.94)_58%)] p-4 text-white">
-                  <div className="mb-2 text-lg font-semibold">Premium</div>
-                  <ul className="space-y-2 text-sm text-slate-200">
+                  <div className="mb-2 text-base font-semibold">Premium</div>
+                  <ul className="space-y-1.5 text-sm text-slate-200">
                     <li>Unlimited questions</li>
                     <li>Full detailed readings</li>
                     <li>D9, D10, remedies, matching</li>
@@ -100,59 +152,7 @@ export default function KundaliPage() {
                   <div className="mt-3 text-xs text-amber-200/90">Rs. 99 monthly</div>
                 </Card>
               </div>
-
-              {!user ? (
-                <Card id="auth-panel" className="rounded-3xl border border-white/10 bg-slate-950/70 p-5 text-white">
-                  <div className="mb-2 text-lg font-semibold">Sign In / Sign Up to begin</div>
-                  <p className="mb-4 text-sm text-slate-300">
-                    Your readings now live under your account instead of a temporary browser session.
-                  </p>
-                  <div className="mb-3 inline-flex rounded-full border border-blue-400/20 bg-blue-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-200">
-                    Continue With Google
-                  </div>
-                  <GoogleSignInButton text="signup_with" />
-                  {authError ? <p className="mt-3 text-sm text-rose-300">{authError}</p> : null}
-                </Card>
-              ) : (
-                <div className="space-y-4">
-                  <Card className="rounded-3xl border border-emerald-400/20 bg-emerald-500/10 p-4 text-white">
-                    <div className="text-sm font-medium text-emerald-100">Signed in as {user.email}</div>
-                    <div className="mt-1 text-xs text-emerald-200/90">
-                      {user.plan_access.is_premium
-                        ? `Premium access active${user.billing?.premium_until ? ` until ${new Date(user.billing.premium_until).toLocaleDateString()}` : ""}.`
-                        : `${user.plan_access.daily_questions_remaining ?? 0} questions available today${(user.plan_access.extra_questions_balance ?? 0) > 0 ? ` (${user.plan_access.extra_questions_balance} paid booster)` : ""}.`}
-                    </div>
-                    <div className="mt-3">
-                      <Button
-                        type="button"
-                        onClick={() => setBillingOpen(true)}
-                        className={user.plan_access.is_premium ? "bg-amber-500 text-slate-950 hover:bg-amber-400" : "bg-cyan-600 text-white hover:bg-cyan-500"}
-                      >
-                        {user.plan_access.is_premium ? "Manage Premium" : "Upgrade / Buy Questions"}
-                      </Button>
-                    </div>
-                  </Card>
-                  <AccountHistory backendUrl={backendUrl} variant="embedded" limit={3} />
-                </div>
-              )}
-            </section>
-
-            <div className="flex justify-center lg:justify-end">
-              {authLoading ? (
-                <Card className="w-full max-w-md rounded-3xl border border-white/10 bg-slate-950/70 p-6 text-sm text-slate-300">
-                  Restoring your account…
-                </Card>
-              ) : user ? (
-                <KundaliForm onSubmit={handleFormSubmit} loading={loading} />
-              ) : (
-                <Card className="w-full max-w-md rounded-3xl border border-white/10 bg-slate-950/70 p-6 text-center text-slate-300">
-                  <div className="mb-3 text-lg font-semibold text-white">Birth form unlocks after sign-in</div>
-                  <p className="text-sm leading-6">
-                    We now attach every reading to your account so you can come back to the same chart, session, and premium entitlements later.
-                  </p>
-                </Card>
-              )}
-            </div>
+            </aside>
           </div>
         </div>
   )

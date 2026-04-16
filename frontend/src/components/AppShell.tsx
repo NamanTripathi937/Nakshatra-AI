@@ -22,11 +22,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="relative min-h-screen">
+    <div className="relative min-h-screen lg:h-screen lg:overflow-hidden">
       <div className="mid-layer pointer-events-none fixed inset-0 select-none" aria-hidden="true" />
-      <div className="relative z-10 flex min-h-screen flex-col">
+      <div className="relative z-10 flex min-h-screen flex-col lg:h-screen">
         <Header />
-        <div className="flex-1">
+        <div className="flex-1 lg:overflow-hidden">
           {children}
         </div>
       </div>

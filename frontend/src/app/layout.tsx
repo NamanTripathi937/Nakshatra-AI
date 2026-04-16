@@ -20,6 +20,7 @@ const geistMono = Geist_Mono({
 });
 
 const BASE_URL = "https://nakshatra-ai.vercel.app";
+const ADSENSE_CLIENT_ID = process.env.NEXT_PUBLIC_ADSENSE_CLIENT_ID
 
 export const metadata: Metadata = {
   metadataBase: new URL(BASE_URL),
@@ -115,6 +116,14 @@ export default function RootLayout({
           src="https://accounts.google.com/gsi/client"
           strategy="afterInteractive"
         />
+        {ADSENSE_CLIENT_ID ? (
+          <Script
+            id="adsense-script"
+            src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADSENSE_CLIENT_ID}`}
+            strategy="afterInteractive"
+            crossOrigin="anonymous"
+          />
+        ) : null}
         {/* Initialize gtag */}
         <Script id="gtag-init" strategy="afterInteractive">
           {`
