@@ -2349,8 +2349,6 @@ async def get_or_restore_kundli(session_id: str) -> Optional[Dict[str, Any]]:
         build_detailed_chart_summary(kundli, {"full_name": (session_doc or {}).get("full_name")}),
     )
     return kundli
-
-
 def ensure_chart_summary_in_memory(chain: ConversationChain, chart_summary: str) -> None:
     if not chart_summary:
         return
