@@ -245,6 +245,10 @@ def infer_question_focus(user_query: Optional[str]) -> Dict[str, Any]:
     supporting_charts: list[str] = []
     remedies_relevant = False
     timing_focus = any(token in query for token in ["when", "timing", "time", "period", "dasha"])
+    topic_guidance = (
+        "Anchor the answer in Lagna, Lagna lord, Moon, and the most defining chart signatures. "
+        "If the question is broad or unclear, give a balanced general reading before narrowing down."
+    )
 
     if any(token in query for token in ["marriage", "spouse", "wife", "husband", "partner", "relationship", "love", "romance"]):
         topic = "marriage_relationships"
@@ -253,6 +257,11 @@ def infer_question_focus(user_query: Optional[str]) -> Dict[str, Any]:
         supporting_charts = ["D9"]
         remedies_relevant = True
         timing_focus = True
+        topic_guidance = (
+            "Focus first on the 7th house, its lord, Venus, and relationship-supporting influences from the 5th and 8th houses. "
+            "Use D9 as supporting evidence for spouse quality, marriage stability, and deeper relational dharma. "
+            "For timing, prioritize dashas and antardashas activating the 7th lord, Venus, planets placed in the 7th house, or strong links to the 7th/D9."
+        )
     elif any(token in query for token in ["career", "profession", "job", "work", "business", "promotion", "status"]):
         topic = "career"
         relevant_houses = [1, 2, 6, 10, 11]
@@ -260,34 +269,79 @@ def infer_question_focus(user_query: Optional[str]) -> Dict[str, Any]:
         supporting_charts = ["D10"]
         remedies_relevant = True
         timing_focus = True
+        topic_guidance = (
+            "Prioritize the 10th house, 10th lord, 6th house, 2nd house, and 11th house for role, effort, earnings, and gains. "
+            "Use Sun, Saturn, Mercury, and D10 as supporting evidence for profession, status, and public work. "
+            "For timing, emphasize periods activating the 10th lord, planets influencing the 10th, or key D10 connections."
+        )
     elif any(token in query for token in ["child", "children", "kid", "kids", "offspring", "pregnancy", "fertility", "son", "daughter"]):
         topic = "children"
         relevant_houses = [2, 5, 9, 11]
         relevant_karakas = ["Jupiter", "Moon", "5th lord"]
         remedies_relevant = True
+        topic_guidance = (
+            "Focus on the 5th house, 5th lord, Jupiter, relevant occupants, and helpful or difficult aspects. "
+            "Distinguish promise, delay, and support factors carefully instead of giving a blanket yes or no."
+        )
     elif any(token in query for token in ["sibling", "siblings", "brother", "brothers", "sister", "sisters"]):
         topic = "siblings"
         relevant_houses = [3, 11]
         relevant_karakas = ["Mercury", "Mars", "3rd lord", "11th lord"]
+        topic_guidance = (
+            "Use the 3rd house and its lord for younger siblings, and the 11th house and its lord for elder siblings. "
+            "Use Mercury and Mars as supporting karakas and explain whether the indications are harmonious, distant, or mixed."
+        )
     elif any(token in query for token in ["money", "wealth", "finance", "income", "rich", "prosperity"]):
         topic = "wealth"
         relevant_houses = [2, 5, 9, 11]
         relevant_karakas = ["Jupiter", "Venus", "2nd lord", "11th lord"]
         remedies_relevant = True
+        topic_guidance = (
+            "Focus on the 2nd and 11th houses for wealth and gains, and the 5th and 9th for fortune, merit, and supportive prosperity patterns. "
+            "Check dhana yogas, the condition of Jupiter and Venus, and whether wealth comes more through skill, business, support networks, or luck."
+        )
     elif any(token in query for token in ["health", "disease", "illness", "body", "hospital"]):
         topic = "health"
         relevant_houses = [1, 6, 8, 12]
         relevant_karakas = ["Sun", "Moon", "Mars", "Saturn", "6th lord"]
         remedies_relevant = True
+        topic_guidance = (
+            "Focus on the 1st house for vitality, the 6th for disease and imbalance, the 8th for chronic vulnerability, and the 12th for hospitalization or depletion. "
+            "Describe tendencies and stress points carefully without pretending to offer medical diagnosis."
+        )
+    elif any(token in query for token in ["spiritual", "spirituality", "purpose", "dharma", "moksha", "meditation", "soul", "guru", "inner growth", "enlightenment"]):
+        topic = "spirituality"
+        relevant_houses = [1, 5, 9, 12]
+        relevant_karakas = ["Jupiter", "Ketu", "Sun", "Moon", "9th lord", "12th lord"]
+        supporting_charts = ["D9"]
+        topic_guidance = (
+            "Focus on the 5th, 9th, and 12th houses for mantra shakti, dharma, grace, retreat, and liberation-oriented tendencies. "
+            "Use Jupiter, Ketu, Sun, Moon, and D9 as supporting indicators of faith, inner calling, and spiritual maturation."
+        )
     elif any(token in query for token in ["sensual", "sexual", "intimacy", "passion"]):
         topic = "sensuality_intimacy"
         relevant_houses = [1, 5, 7, 8, 12]
         relevant_karakas = ["Venus", "Mars", "Moon"]
         supporting_charts = ["D9"]
+        topic_guidance = (
+            "Focus on Venus, Mars, Moon, and the 5th, 7th, 8th, and 12th houses to judge attraction, chemistry, passion, emotional bonding, and private intimacy patterns."
+        )
     elif any(token in query for token in ["death", "longevity", "end of life"]):
         topic = "longevity_sensitive"
         relevant_houses = [1, 3, 8]
         relevant_karakas = ["Saturn", "8th lord"]
+        topic_guidance = (
+            "Handle longevity cautiously. Focus on vitality, resilience, and difficult periods rather than deterministic death claims. "
+            "Use the 1st, 3rd, and 8th houses, Saturn, and the 8th lord for risk and endurance patterns."
+        )
+    elif timing_focus:
+        topic = "timing_general"
+        relevant_houses = [1, 9, 10]
+        relevant_karakas = ["Mahadasha lord", "Antardasha lord", "Moon"]
+        topic_guidance = (
+            "The user is primarily asking about timing. Start from the relevant life area if one is implied, then use the current and upcoming mahadasha and antardasha periods. "
+            "Explain timing through activation of house lords, occupants, and key karakas rather than giving unsupported dates."
+        )
 
     return {
         "topic": topic,
@@ -296,6 +350,7 @@ def infer_question_focus(user_query: Optional[str]) -> Dict[str, Any]:
         "supporting_charts": supporting_charts,
         "timing_focus": timing_focus,
         "remedies_relevant": remedies_relevant,
+        "topic_guidance": topic_guidance,
     }
 
 
@@ -322,7 +377,8 @@ def build_astrology_reasoning_framework(user_query: Optional[str] = None, is_fir
         "6. Every conclusion should be tied back to concrete chart evidence.\n"
         "7. If the chart is mixed, say the result is mixed and explain why instead of forcing certainty.\n"
         "8. When the topic naturally calls for help or correction, end with practical Vedic remedies.\n"
-        f"9. Topic metadata: {json.dumps(focus, ensure_ascii=False)}\n"
+        f"9. Topic-specific guidance: {focus['topic_guidance']}\n"
+        f"10. Topic metadata: {json.dumps(focus, ensure_ascii=False)}\n"
     )
 
 
