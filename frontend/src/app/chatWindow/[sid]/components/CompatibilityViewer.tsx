@@ -7,8 +7,9 @@ import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { buildAuthHeaders, useAuth } from "@/lib/auth"
 import PlacesAutoComplete from "@/components/ui/placesAutoComplete"
-import { HeartHandshake, Loader2, Sparkles, X } from "lucide-react"
+import { Crown, HeartHandshake, Loader2, Lock, Sparkles, X } from "lucide-react"
 
 type CompatibilityViewerProps = {
   backendUrl: string
@@ -62,6 +63,7 @@ export default function CompatibilityViewer({
   onClose,
   sessionId,
 }: CompatibilityViewerProps) {
+  const { token, user } = useAuth()
   const [role, setRole] = React.useState<"" | "bride" | "groom">("")
   const [partnerData, setPartnerData] = React.useState({
     fullName: "",
@@ -78,6 +80,7 @@ export default function CompatibilityViewer({
   const [loading, setLoading] = React.useState(false)
   const [error, setError] = React.useState("")
   const [result, setResult] = React.useState<CompatibilityResponse | null>(null)
+  const canUseCompatibility = Boolean(user?.plan_access.features.compatibility)
 
   React.useEffect(() => {
     if (!open) return
@@ -130,10 +133,10 @@ export default function CompatibilityViewer({
     try {
       const res = await fetch(`${backendUrl}/compatibility`, {
         method: "POST",
-        headers: {
+        headers: buildAuthHeaders(token, {
           "Content-Type": "application/json",
           "X-Session-Id": sessionId,
-        },
+        }),
         body: JSON.stringify({
           native_role: role,
           partner: {
@@ -202,6 +205,34 @@ export default function CompatibilityViewer({
 
         <div className="flex-1 overflow-hidden">
           <ScrollArea className="h-full">
+            {!canUseCompatibility ? (
+              <div className="px-4 py-5">
+                <section className="rounded-3xl border border-amber-400/20 bg-[radial-gradient(circle_at_top,_rgba(251,191,36,0.16),_rgba(15,23,42,0.96)_58%)] p-5 text-white">
+                  <div className="mb-3 flex items-center gap-2">
+                    <Crown className="h-5 w-5 text-amber-200" />
+                    <h3 className="text-lg font-semibold">Kundli Milan is on Premium</h3>
+                  </div>
+                  <p className="text-sm leading-6 text-amber-100/90">
+                    Premium unlocks Ashtakoot matching, guna scoring out of 36, marriage strengths, challenge analysis, remedies, daily transit insights, and PDF exports.
+                  </p>
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                    {[
+                      "Ashtakoot score and koota breakdown",
+                      "Likely marriage strengths and pressure points",
+                      "Best part of the marriage summary",
+                      "Premium-only remedial and timing context",
+                    ].map((item) => (
+                      <div key={item} className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-slate-100">
+                        <div className="flex items-start gap-2">
+                          <Lock className="mt-0.5 h-4 w-4 shrink-0 text-amber-200" />
+                          <span>{item}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              </div>
+            ) : (
             <div className="grid gap-5 px-4 py-4 lg:grid-cols-[360px_minmax(0,1fr)]">
               <section className="rounded-3xl border border-rose-400/15 bg-[radial-gradient(circle_at_top,_rgba(244,63,94,0.12),_rgba(15,23,42,0.96)_60%)] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
                 <div className="mb-4 flex items-center gap-2 text-white">
@@ -433,6 +464,7 @@ export default function CompatibilityViewer({
                 )}
               </section>
             </div>
+            )}
           </ScrollArea>
         </div>
       </Card>

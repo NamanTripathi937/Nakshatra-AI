@@ -39,7 +39,16 @@ async def close_mongo_connection():
         motor_client.close()
         logger.info("MongoDB connection closed")
 
-# Collection - single unified collection for all session data
 def get_sessions_collection():
-    """Get the unified sessions collection"""
+    """Get the chat/chart session collection."""
     return database["sessions"]
+
+
+def get_users_collection():
+    """Get the users collection."""
+    return database["users"]
+
+
+def get_payments_collection():
+    """Get the billing/payments collection."""
+    return database["payments"]

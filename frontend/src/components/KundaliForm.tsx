@@ -169,7 +169,7 @@ export default function KundaliForm({ onSubmit, loading }: { onSubmit: (data: an
         </Card>
 
         <div className="text-center">
-          <p className="text-xs text-gray-500">Your information is secure and used only for Kundali generation</p>
+          <p className="text-xs text-gray-500">Your information is saved privately inside your account so your readings stay available across devices.</p>
         </div>
       </div>
     </div>

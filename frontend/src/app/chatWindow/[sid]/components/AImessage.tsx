@@ -15,7 +15,7 @@ function useTypingEffect(text: string, id: string, isNew: boolean): string {
   const timeoutIds = React.useRef<NodeJS.Timeout[]>([])
 
   React.useEffect(() => {
-    // If message is not new (restored from localStorage), skip animation
+    // If message is restored from the server, skip the first-render typing animation
     if (!isNew) {
       setDisplayed(text)
       return
