@@ -5,7 +5,8 @@ import React from "react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { ChevronDown, ChevronUp, Loader2, X } from "lucide-react"
+import { buildAuthHeaders, useAuth } from "@/lib/auth"
+import { ChevronDown, ChevronUp, Crown, Loader2, Lock, X } from "lucide-react"
 
 type ChartViewerProps = {
   backendUrl: string
@@ -96,6 +97,16 @@ const STYLE_OPTIONS = [
   { value: "north", label: "North Indian" },
 ]
 
+const ASTROLOGY_TERM_EXPLANATIONS: Record<string, string> = {
+  exalted: "An exalted planet expresses its strength very clearly in that sign, so its positive qualities tend to operate with confidence and support.",
+  debilitated: "A debilitated planet is in a sign where its natural style feels weakened or uncomfortable, so its results often need more maturity and conscious handling.",
+  retrograde: "A retrograde planet turns its energy inward and makes that area of life more reflective, karmic, delayed, or intense than usual.",
+  combust: "A combust planet sits too close to the Sun, so its independent voice can get overshadowed and become harder to express smoothly.",
+  vargottama: "A vargottama planet repeats the same sign across key charts, which usually strengthens and stabilizes that planet's core influence.",
+  "own sign": "A planet in its own sign works from familiar ground, so it usually expresses its nature more cleanly and reliably.",
+  moolatrikona: "Moolatrikona is a special zone of strength where a planet can express its deeper purpose in a steady and effective way.",
+}
+
 function cacheKey(chartCode: string, style: string) {
   return `${chartCode}:${style}`
 }
@@ -145,6 +156,33 @@ function getInfluenceLabel(influence: ChartPlanetDetail["influence"]) {
   return "Mixed"
 }
 
+function TermHint({ term, className }: { term: string; className: string }) {
+  const explanation = ASTROLOGY_TERM_EXPLANATIONS[term.toLowerCase()]
+
+  if (!explanation) {
+    return <span className={className}>{term}</span>
+  }
+
+  return (
+    <span className="group relative inline-flex">
+      <span
+        tabIndex={0}
+        className={`${className} cursor-help outline-none transition-transform duration-150 group-hover:scale-[1.03] group-focus-visible:scale-[1.03] group-focus-visible:ring-2 group-focus-visible:ring-cyan-300/50`}
+        aria-label={`${term}: ${explanation}`}
+      >
+        {term}
+      </span>
+      <span
+        role="tooltip"
+        className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-2 w-56 -translate-x-1/2 rounded-2xl border border-cyan-300/20 bg-slate-950/96 px-3 py-2 text-left text-[11px] font-normal leading-4 text-slate-100 opacity-0 shadow-[0_18px_48px_rgba(2,6,23,0.52)] transition-all duration-150 group-hover:-translate-y-1 group-hover:opacity-100 group-focus-within:-translate-y-1 group-focus-within:opacity-100"
+      >
+        <span className="block text-[10px] font-semibold uppercase tracking-[0.16em] text-cyan-200">{term}</span>
+        <span className="mt-1 block">{explanation}</span>
+      </span>
+    </span>
+  )
+}
+
 function renderEmptyRemedyState() {
   return (
     <div className="rounded-2xl border border-white/8 bg-slate-950/50 px-3 py-3 text-xs text-slate-500">
@@ -163,6 +201,7 @@ export default function ChartViewer({
   onClose,
   sessionId,
 }: ChartViewerProps) {
+  const { token, user } = useAuth()
   const [style, setStyle] = React.useState("north")
   const [cache, setCache] = React.useState<Record<string, ChartResponse>>({})
   const [loading, setLoading] = React.useState(false)
@@ -172,8 +211,18 @@ export default function ChartViewer({
   const [remediesError, setRemediesError] = React.useState("")
   const [expandedInsights, setExpandedInsights] = React.useState<Record<string, boolean>>({})
   const planetRowRefs = React.useRef<Record<string, HTMLDivElement | null>>({})
-  const visibleCharts = CHART_OPTIONS.map((option) => cache[cacheKey(option.code, style)]).filter(
-    (chart): chart is ChartResponse => Boolean(chart)
+  const canSeeDivisional = Boolean(user?.plan_access.features.divisional_charts)
+  const canSeeRemedies = Boolean(user?.plan_access.features.remedies)
+  const visibleOptions = React.useMemo(
+    () => (canSeeDivisional ? CHART_OPTIONS : CHART_OPTIONS.filter((option) => option.code === "D1")),
+    [canSeeDivisional]
+  )
+  const visibleCharts = React.useMemo(
+    () =>
+      visibleOptions
+        .map((option) => cache[cacheKey(option.code, style)])
+        .filter((chart): chart is ChartResponse => Boolean(chart)),
+    [cache, style, visibleOptions]
   )
 
   function toggleInsight(key: string) {
@@ -216,7 +265,7 @@ export default function ChartViewer({
   }, [sessionId])
 
   React.useEffect(() => {
-    if (!open || !sessionId || remedies) return
+    if (!open || !sessionId || remedies || !token || !canSeeRemedies) return
 
     let isCancelled = false
 
@@ -225,9 +274,9 @@ export default function ChartViewer({
       setRemediesError("")
       try {
         const res = await fetch(`${backendUrl}/remedies`, {
-          headers: {
+          headers: buildAuthHeaders(token, {
             "X-Session-Id": sessionId,
-          },
+          }),
         })
 
         if (!res.ok) {
@@ -260,13 +309,13 @@ export default function ChartViewer({
     return () => {
       isCancelled = true
     }
-  }, [backendUrl, open, remedies, sessionId])
+  }, [backendUrl, canSeeRemedies, open, remedies, sessionId, token])
 
   React.useEffect(() => {
-    if (!open || !sessionId) return
+    if (!open || !sessionId || !token) return
 
     let isCancelled = false
-    const missingOptions = CHART_OPTIONS.filter((option) => !cache[cacheKey(option.code, style)])
+    const missingOptions = visibleOptions.filter((option) => !cache[cacheKey(option.code, style)])
 
     if (missingOptions.length === 0) return
 
@@ -279,9 +328,9 @@ export default function ChartViewer({
             const res = await fetch(
               `${backendUrl}/charts?code=${encodeURIComponent(option.code)}&style=${encodeURIComponent(style)}`,
               {
-                headers: {
+                headers: buildAuthHeaders(token, {
                   "X-Session-Id": sessionId,
-                },
+                }),
               }
             )
 
@@ -322,7 +371,7 @@ export default function ChartViewer({
     return () => {
       isCancelled = true
     }
-  }, [backendUrl, cache, open, sessionId, style])
+  }, [backendUrl, cache, open, sessionId, style, token, visibleOptions])
 
   if (!open) return null
 
@@ -382,6 +431,19 @@ export default function ChartViewer({
                   <span>Open any planet to see a deeper insight tailored to your own chart.</span>
                   <span>{STYLE_OPTIONS.find((option) => option.value === style)?.label}</span>
                 </div>
+                {!canSeeDivisional ? (
+                  <div className="mb-4 rounded-3xl border border-amber-400/20 bg-amber-500/10 p-4 text-sm text-amber-100">
+                    <div className="flex items-start gap-3">
+                      <Crown className="mt-0.5 h-5 w-5 shrink-0 text-amber-200" />
+                      <div>
+                        <div className="font-semibold text-white">Premium unlocks D9 and D10</div>
+                        <p className="mt-1 text-amber-100/90">
+                          Free accounts can view the Lagna chart. Premium adds divisional charts, remedies, daily transits, and downloadable reports.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                   {visibleCharts.map((chart) => (
                     <section
@@ -471,12 +533,11 @@ export default function ChartViewer({
                               {planet.statuses.length > 0 ? (
                                 <div className="mt-2 flex flex-wrap gap-1.5">
                                   {planet.statuses.map((status) => (
-                                    <span
+                                    <TermHint
                                       key={`${planet.name}-${status}`}
+                                      term={status}
                                       className={`rounded-full border px-2 py-0.5 text-[11px] font-medium ${getStatusClasses(status)}`}
-                                    >
-                                      {status}
-                                    </span>
+                                    />
                                   ))}
                                 </div>
                               ) : (
@@ -511,6 +572,24 @@ export default function ChartViewer({
                       </div>
                     </section>
                   ))}
+                  {!canSeeDivisional ? (
+                    <>
+                      {["Navamsha (D9)", "Dashamsha (D10)"].map((label) => (
+                        <section
+                          key={label}
+                          className="rounded-3xl border border-dashed border-white/12 bg-slate-950/55 p-5 text-slate-300"
+                        >
+                          <div className="mb-3 flex items-center gap-2 text-white">
+                            <Lock className="h-4 w-4 text-amber-300" />
+                            <h3 className="text-lg font-semibold">{label}</h3>
+                          </div>
+                          <p className="text-sm leading-6 text-slate-400">
+                            Premium adds this chart, its detailed placements, and its chart-specific interpretation.
+                          </p>
+                        </section>
+                      ))}
+                    </>
+                  ) : null}
                 </div>
                 <section className="mt-6 rounded-3xl border border-emerald-400/15 bg-[radial-gradient(circle_at_top,_rgba(16,185,129,0.12),_rgba(15,23,42,0.96)_60%)] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
                   <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
@@ -520,9 +599,19 @@ export default function ChartViewer({
                         Rule-based remedies derived from weak supportive planets and afflicted natal placements.
                       </p>
                     </div>
+                    {!canSeeRemedies ? (
+                      <span className="inline-flex items-center rounded-full bg-amber-500/15 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-amber-200">
+                        <Lock className="mr-1 h-3.5 w-3.5" />
+                        Premium
+                      </span>
+                    ) : null}
                   </div>
 
-                  {remediesLoading && !remedies ? (
+                  {!canSeeRemedies ? (
+                    <div className="rounded-2xl border border-dashed border-white/12 bg-slate-950/55 p-4 text-sm leading-6 text-slate-300">
+                      Upgrade to Premium to unlock personalized remedies, daily transit predictions, and PDF report downloads.
+                    </div>
+                  ) : remediesLoading && !remedies ? (
                     <div className="flex min-h-[180px] items-center justify-center text-slate-300">
                       <Loader2 className="mr-3 h-5 w-5 animate-spin" />
                       Preparing remedies...

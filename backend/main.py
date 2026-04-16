@@ -3,7 +3,7 @@ import json
 import logging
 import re
 from typing import Any, Dict, Optional
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from threading import Lock
 from contextlib import asynccontextmanager
 from tempfile import TemporaryDirectory
@@ -12,6 +12,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from pymongo import ReturnDocument
 from jyotichart import (
     JUPITER,
     KETU,
@@ -39,8 +40,34 @@ from astro.astro import (
     OWN_SIGNS,
     generate_chart,
 )
-from database import connect_to_mongo, close_mongo_connection, get_sessions_collection
-from models import SessionData, Message
+from auth import (
+    DEFAULT_PLAN,
+    GOOGLE_CLIENT_ID,
+    build_auth_token_for_user,
+    build_plan_access,
+    build_user_payload,
+    decode_auth_token,
+    get_effective_plan,
+    get_extra_questions_balance,
+    get_premium_until,
+    get_user_usage_snapshot,
+    normalize_plan,
+    utc_now,
+    verify_google_credential,
+)
+from billing import (
+    create_razorpay_order,
+    fetch_razorpay_payment,
+    get_checkout_key_id,
+    get_plan,
+    is_razorpay_webhook_configured,
+    is_razorpay_configured,
+    list_plans,
+    verify_checkout_signature,
+    verify_webhook_signature,
+)
+from database import connect_to_mongo, close_mongo_connection, get_payments_collection, get_sessions_collection, get_users_collection
+from models import SessionData, Message, PaymentRecord, UserData
 
 # ----- Logging -----
 logging.basicConfig(level=logging.INFO)
@@ -380,6 +407,345 @@ def ping():
     logger.info("Ping received")
     return {"status": "ok"}
 
+
+@app.post("/auth/google")
+async def auth_google(request: Request):
+    try:
+        payload = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON payload")
+
+    credential = (payload.get("credential") or "").strip()
+    if not credential:
+        raise HTTPException(status_code=400, detail="Missing Google credential")
+    if not GOOGLE_CLIENT_ID:
+        raise HTTPException(status_code=503, detail="Google sign-in is not configured on the backend")
+
+    try:
+        google_profile = await verify_google_credential(credential)
+    except ValueError as exc:
+        raise HTTPException(status_code=401, detail=str(exc)) from exc
+
+    user_id = google_profile["google_sub"]
+    now = utc_now()
+    users_collection = get_users_collection()
+    existing_user = await users_collection.find_one({"_id": user_id})
+
+    if existing_user:
+        await users_collection.update_one(
+            {"_id": user_id},
+            {
+                "$set": {
+                    "email": google_profile["email"],
+                    "name": google_profile["name"],
+                    "picture": google_profile.get("picture"),
+                    "updated_at": now,
+                }
+            },
+        )
+        user_doc = await users_collection.find_one({"_id": user_id})
+    else:
+        user_payload = UserData(
+            google_sub=google_profile["google_sub"],
+            email=google_profile["email"],
+            name=google_profile["name"],
+            picture=google_profile.get("picture"),
+        ).dict()
+        user_payload["_id"] = user_id
+        await users_collection.insert_one(user_payload)
+        user_doc = await users_collection.find_one({"_id": user_id})
+
+    user_doc = await refresh_user_account_state(user_doc)
+    token = build_auth_token_for_user(user_doc)
+    return JSONResponse(content={"token": token, "user": build_user_payload(user_doc)})
+
+
+@app.get("/auth/me")
+async def auth_me(request: Request):
+    user_doc = await get_current_user(request)
+    user_doc = await refresh_user_account_state(user_doc)
+    return JSONResponse(content={"user": build_user_payload(user_doc)})
+
+
+@app.get("/billing/plans")
+async def billing_plans(request: Request):
+    user_doc = await get_current_user(request)
+    user_doc = await refresh_user_account_state(user_doc)
+    return JSONResponse(
+        content={
+            "configured": is_razorpay_configured(),
+            "gateway": "razorpay",
+            "plans": list_plans(),
+            "user": build_user_payload(user_doc),
+        }
+    )
+
+
+@app.post("/billing/checkout")
+async def billing_checkout(request: Request):
+    user_doc = await get_current_user(request)
+    user_doc = await refresh_user_account_state(user_doc)
+
+    if not is_razorpay_configured():
+        raise HTTPException(status_code=503, detail="Billing is not configured on the backend yet.")
+
+    try:
+        payload = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON payload")
+
+    plan_code = (payload.get("plan_code") or "").strip()
+    plan = get_plan(plan_code)
+    if not plan:
+        raise HTTPException(status_code=404, detail="Unknown billing plan")
+
+    now = utc_now()
+    receipt = f"nk_{str(user_doc['_id'])[:8]}_{int(now.timestamp())}"
+    notes = {
+        "user_id": str(user_doc["_id"]),
+        "email": user_doc.get("email") or "",
+        "plan_code": plan["code"],
+    }
+
+    try:
+        order = await create_razorpay_order(
+            amount_paise=plan["amount_paise"],
+            currency=plan["currency"],
+            receipt=receipt,
+            notes=notes,
+        )
+    except Exception:
+        logger.exception("Failed to create Razorpay order for user %s", user_doc.get("email"))
+        raise HTTPException(status_code=502, detail="Unable to start payment right now. Please try again in a moment.")
+
+    payment_doc = PaymentRecord(
+        order_id=order["id"],
+        user_id=str(user_doc["_id"]),
+        plan_code=plan["code"],
+        plan_name=plan["name"],
+        amount_paise=plan["amount_paise"],
+        currency=plan["currency"],
+        receipt=receipt,
+        meta={
+            "gateway_order": order,
+            "user_email": user_doc.get("email"),
+        },
+    ).dict()
+    payment_doc["_id"] = order["id"]
+    await get_payments_collection().replace_one({"_id": order["id"]}, payment_doc, upsert=True)
+
+    return JSONResponse(
+        content={
+            "plan": {**plan, "display_price": next((item["display_price"] for item in list_plans() if item["code"] == plan["code"]), "")},
+            "checkout": {
+                "key": get_checkout_key_id(),
+                "order_id": order["id"],
+                "amount": order["amount"],
+                "currency": order["currency"],
+                "name": "Nakshatra AI",
+                "description": plan["tagline"],
+                "prefill": {
+                    "name": user_doc.get("name") or "",
+                    "email": user_doc.get("email") or "",
+                },
+                "theme": {"color": "#0f6c7a"},
+            },
+        }
+    )
+
+
+@app.post("/billing/verify")
+async def billing_verify(request: Request):
+    user_doc = await get_current_user(request)
+    user_doc = await refresh_user_account_state(user_doc)
+
+    try:
+        payload = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON payload")
+
+    order_id = (payload.get("razorpay_order_id") or "").strip()
+    payment_id = (payload.get("razorpay_payment_id") or "").strip()
+    signature = (payload.get("razorpay_signature") or "").strip()
+
+    if not order_id or not payment_id or not signature:
+        raise HTTPException(status_code=400, detail="Missing Razorpay verification fields")
+    if not verify_checkout_signature(order_id, payment_id, signature):
+        raise HTTPException(status_code=400, detail="Payment signature verification failed")
+
+    payments_collection = get_payments_collection()
+    payment_doc = await payments_collection.find_one({"_id": order_id, "user_id": str(user_doc["_id"])})
+    if not payment_doc:
+        raise HTTPException(status_code=404, detail="Payment record not found for this account")
+
+    if payment_doc.get("activated") and payment_doc.get("fulfillment"):
+        updated_user = await get_users_collection().find_one({"_id": user_doc["_id"]})
+        updated_user = await refresh_user_account_state(updated_user)
+        return JSONResponse(
+            content={
+                "success": True,
+                "activation": payment_doc.get("fulfillment"),
+                "user": build_user_payload(updated_user),
+            }
+        )
+
+    try:
+        provider_payment = await fetch_razorpay_payment(payment_id)
+    except Exception:
+        logger.exception("Failed to fetch Razorpay payment %s", payment_id)
+        raise HTTPException(status_code=502, detail="Unable to verify payment right now. Please try again shortly.")
+
+    if provider_payment.get("order_id") != order_id:
+        raise HTTPException(status_code=400, detail="Payment does not belong to this order")
+    if provider_payment.get("status") not in {"authorized", "captured"}:
+        raise HTTPException(status_code=400, detail="Payment is not captured yet")
+
+    fulfillment = await activate_paid_plan_for_user(
+        user_doc=user_doc,
+        payment_doc=payment_doc,
+        payment_id=payment_id,
+        provider_payment=provider_payment,
+        source="checkout",
+    )
+    updated_user = await get_users_collection().find_one({"_id": user_doc["_id"]})
+    updated_user = await refresh_user_account_state(updated_user)
+    return JSONResponse(
+        content={
+            "success": True,
+            "activation": fulfillment,
+            "user": build_user_payload(updated_user),
+        }
+    )
+
+
+@app.post("/billing/webhooks/razorpay")
+async def razorpay_webhook(request: Request):
+    if not is_razorpay_configured() or not is_razorpay_webhook_configured():
+        return JSONResponse(content={"status": "ignored", "reason": "billing_not_configured"})
+
+    signature = (request.headers.get("x-razorpay-signature") or "").strip()
+    raw_body = await request.body()
+    if not signature or not verify_webhook_signature(raw_body, signature):
+        raise HTTPException(status_code=400, detail="Invalid webhook signature")
+
+    try:
+        payload = json.loads(raw_body.decode("utf-8"))
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=400, detail="Invalid webhook body")
+
+    event = payload.get("event") or ""
+    payment_entity = (((payload.get("payload") or {}).get("payment") or {}).get("entity") or {})
+    order_id = payment_entity.get("order_id")
+    payment_id = payment_entity.get("id")
+
+    if event not in {"payment.authorized", "payment.captured"} or not order_id or not payment_id:
+        return JSONResponse(content={"status": "ignored", "event": event})
+
+    payments_collection = get_payments_collection()
+    payment_doc = await payments_collection.find_one({"_id": order_id})
+    if not payment_doc:
+        return JSONResponse(content={"status": "ignored", "reason": "unknown_order"})
+    if payment_doc.get("activated"):
+        return JSONResponse(content={"status": "ok", "already_activated": True})
+
+    user_doc = await get_users_collection().find_one({"_id": payment_doc.get("user_id")})
+    if not user_doc:
+        return JSONResponse(content={"status": "ignored", "reason": "unknown_user"})
+
+    await activate_paid_plan_for_user(
+        user_doc=user_doc,
+        payment_doc=payment_doc,
+        payment_id=payment_id,
+        provider_payment=payment_entity,
+        source="webhook",
+    )
+    return JSONResponse(content={"status": "ok"})
+
+
+@app.post("/sessions")
+async def create_session(request: Request):
+    user_doc = await get_current_user(request)
+    user_doc = await refresh_user_account_state(user_doc)
+    now = utc_now()
+    session_id = f"sess-{str(user_doc['_id'])[:8]}-{int(now.timestamp() * 1000)}"
+    session_doc = SessionData(
+        session_id=session_id,
+        user_id=str(user_doc["_id"]),
+        plan_snapshot=build_plan_access(user_doc)["plan"],
+    ).dict()
+    await get_sessions_collection().insert_one(session_doc)
+    return JSONResponse(
+        content={
+            "session_id": session_id,
+            "plan_access": build_plan_access(user_doc),
+        }
+    )
+
+
+@app.get("/sessions/{session_id}")
+async def get_session(request: Request, session_id: str):
+    user_doc = await get_current_user(request)
+    user_doc = await refresh_user_account_state(user_doc)
+    session_doc = await get_owned_session_doc(
+        str(user_doc["_id"]),
+        session_id,
+        {
+            "session_id": 1,
+            "full_name": 1,
+            "birth_details": 1,
+            "messages": 1,
+            "updated_at": 1,
+            "created_at": 1,
+        },
+    )
+    if not session_doc:
+        raise HTTPException(status_code=404, detail="Session not found for this account")
+
+    messages = [
+        serialize_message_doc(message_doc, index)
+        for index, message_doc in enumerate(session_doc.get("messages", []), start=1)
+    ]
+    return JSONResponse(
+        content={
+            "session_id": session_doc["session_id"],
+            "full_name": session_doc.get("full_name"),
+            "has_birth_details": bool(session_doc.get("birth_details")),
+            "messages": messages,
+            "plan_access": build_plan_access(user_doc),
+        }
+    )
+
+
+@app.get("/sessions")
+async def list_sessions(request: Request):
+    user_doc = await get_current_user(request)
+    user_doc = await refresh_user_account_state(user_doc)
+
+    cursor = (
+        get_sessions_collection()
+        .find(
+            {"user_id": str(user_doc["_id"])},
+            {
+                "session_id": 1,
+                "full_name": 1,
+                "birth_details": 1,
+                "messages": 1,
+                "created_at": 1,
+                "updated_at": 1,
+                "plan_snapshot": 1,
+            },
+        )
+        .sort("updated_at", -1)
+        .limit(24)
+    )
+    session_docs = await cursor.to_list(length=24)
+    return JSONResponse(
+        content={
+            "sessions": [build_session_history_item(session_doc) for session_doc in session_docs],
+            "plan_access": build_plan_access(user_doc),
+        }
+    )
+
 # ----- Load env and validate -----
 load_dotenv()
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
@@ -442,6 +808,369 @@ def get_first_name(full_name: Optional[str]) -> str:
     if not cleaned:
         return "there"
     return cleaned.split()[0]
+
+
+def build_auth_error(message: str, status_code: int = 401, code: str = "unauthorized") -> HTTPException:
+    return HTTPException(status_code=status_code, detail={"code": code, "message": message})
+
+
+def build_feature_lock_detail(feature: str, message: str, status_code: int = 403) -> HTTPException:
+    return HTTPException(
+        status_code=status_code,
+        detail={
+            "code": "premium_required",
+            "feature": feature,
+            "message": message,
+        },
+    )
+
+
+def extract_bearer_token(request: Request) -> str:
+    auth_header = request.headers.get("authorization") or ""
+    prefix = "bearer "
+    if not auth_header.lower().startswith(prefix):
+        raise build_auth_error("Please sign in to continue.")
+    token = auth_header[len(prefix):].strip()
+    if not token:
+        raise build_auth_error("Missing access token.")
+    return token
+
+
+async def get_current_user(request: Request) -> Dict[str, Any]:
+    token = extract_bearer_token(request)
+    try:
+        payload = decode_auth_token(token)
+    except ValueError as exc:
+        raise build_auth_error(str(exc)) from exc
+
+    user_id = payload.get("sub")
+    if not user_id:
+        raise build_auth_error("Invalid access token payload.")
+
+    users_collection = get_users_collection()
+    user_doc = await users_collection.find_one({"_id": user_id})
+    if not user_doc:
+        raise build_auth_error("Account not found.", status_code=401)
+    return user_doc
+
+
+async def refresh_user_usage_if_needed(user_doc: Dict[str, Any]) -> Dict[str, Any]:
+    usage_snapshot = get_user_usage_snapshot(user_doc)
+    current_usage = ((user_doc.get("usage") or {}).get("chat_daily") or {})
+    if current_usage.get("date") != usage_snapshot["date"] or int(current_usage.get("count", 0) or 0) != usage_snapshot["count"]:
+        user_doc["usage"] = {**(user_doc.get("usage") or {}), "chat_daily": usage_snapshot}
+        await get_users_collection().update_one(
+            {"_id": user_doc["_id"]},
+            {"$set": {"usage.chat_daily": usage_snapshot, "updated_at": utc_now()}},
+        )
+    return user_doc
+
+
+async def refresh_user_billing_if_needed(user_doc: Dict[str, Any]) -> Dict[str, Any]:
+    effective_plan = get_effective_plan(user_doc)
+    raw_plan = normalize_plan(user_doc.get("plan"))
+    extra_balance = get_extra_questions_balance(user_doc)
+    billing = user_doc.get("billing") or {}
+    update_fields: Dict[str, Any] = {}
+
+    if raw_plan != effective_plan:
+        update_fields["plan"] = effective_plan
+        user_doc["plan"] = effective_plan
+
+    if int(billing.get("extra_questions_balance", 0) or 0) != extra_balance:
+        update_fields["billing.extra_questions_balance"] = extra_balance
+        user_doc["billing"] = {**billing, "extra_questions_balance": extra_balance}
+
+    if update_fields:
+        update_fields["updated_at"] = utc_now()
+        await get_users_collection().update_one(
+            {"_id": user_doc["_id"]},
+            {"$set": update_fields},
+        )
+    return user_doc
+
+
+async def refresh_user_account_state(user_doc: Dict[str, Any]) -> Dict[str, Any]:
+    user_doc = await refresh_user_billing_if_needed(user_doc)
+    user_doc = await refresh_user_usage_if_needed(user_doc)
+    return user_doc
+
+
+async def activate_paid_plan_for_user(
+    *,
+    user_doc: Dict[str, Any],
+    payment_doc: Dict[str, Any],
+    payment_id: str,
+    provider_payment: Optional[Dict[str, Any]] = None,
+    source: str = "checkout",
+) -> Dict[str, Any]:
+    existing_fulfillment = payment_doc.get("fulfillment")
+    if payment_doc.get("activated") and existing_fulfillment:
+        return existing_fulfillment
+
+    plan = get_plan(payment_doc.get("plan_code"))
+    if not plan:
+        raise HTTPException(status_code=404, detail="Billing plan not found for this payment")
+
+    now = utc_now()
+    users_collection = get_users_collection()
+    payments_collection = get_payments_collection()
+    claim_doc = await payments_collection.find_one_and_update(
+        {"_id": payment_doc["_id"], "activated": {"$ne": True}},
+        {
+            "$set": {
+                "status": "processing",
+                "payment_id": payment_id,
+                "provider_payment": provider_payment or {},
+                "updated_at": now,
+            }
+        },
+        return_document=ReturnDocument.BEFORE,
+    )
+    if claim_doc is None:
+        latest_doc = await payments_collection.find_one({"_id": payment_doc["_id"]})
+        if latest_doc and latest_doc.get("fulfillment"):
+            return latest_doc["fulfillment"]
+        return {
+            "type": "pending",
+            "plan_code": payment_doc.get("plan_code"),
+            "plan_name": payment_doc.get("plan_name"),
+        }
+
+    user_doc = await refresh_user_account_state(user_doc)
+    billing = user_doc.get("billing") or {}
+
+    user_set_fields: Dict[str, Any] = {
+        "billing.last_payment_at": now,
+        "billing.last_purchase_code": plan["code"],
+        "billing.last_purchase_name": plan["name"],
+        "updated_at": now,
+    }
+    user_inc_fields: Dict[str, Any] = {}
+    fulfillment: Dict[str, Any]
+
+    if plan["kind"] == "membership":
+        active_until = get_premium_until(user_doc)
+        premium_start = active_until if active_until and active_until > now else now
+        premium_until = premium_start + timedelta(days=int(plan.get("duration_days", 30) or 30))
+        user_set_fields.update(
+            {
+                "plan": "premium",
+                "billing.premium_until": premium_until,
+                "billing.active_membership_code": plan["code"],
+                "billing.active_membership_name": plan["name"],
+            }
+        )
+        fulfillment = {
+            "type": "membership",
+            "plan_code": plan["code"],
+            "plan_name": plan["name"],
+            "premium_until": serialize_datetime_value(premium_until),
+            "activated_at": serialize_datetime_value(now),
+            "source": source,
+        }
+    else:
+        credits = int(plan.get("question_credits", 0) or 0)
+        prior_balance = max(0, int(billing.get("extra_questions_balance", 0) or 0))
+        user_inc_fields["billing.extra_questions_balance"] = credits
+        fulfillment = {
+            "type": "addon_questions",
+            "plan_code": plan["code"],
+            "plan_name": plan["name"],
+            "question_credits_added": credits,
+            "new_balance": prior_balance + credits,
+            "activated_at": serialize_datetime_value(now),
+            "source": source,
+        }
+
+    await users_collection.update_one(
+        {"_id": user_doc["_id"]},
+        {
+            "$set": user_set_fields,
+            **({"$inc": user_inc_fields} if user_inc_fields else {}),
+        },
+    )
+    await payments_collection.update_one(
+        {"_id": payment_doc["_id"]},
+        {
+            "$set": {
+                "status": "paid",
+                "activated": True,
+                "payment_id": payment_id,
+                "provider_payment": provider_payment or {},
+                "paid_at": now,
+                "updated_at": now,
+                "fulfillment": fulfillment,
+            }
+        },
+    )
+    return fulfillment
+
+
+async def increment_daily_question_usage(user_doc: Dict[str, Any]) -> Dict[str, Any]:
+    user_doc = await refresh_user_account_state(user_doc)
+    plan_access = build_plan_access(user_doc)
+    if not plan_access["is_premium"] and plan_access["daily_questions_remaining"] <= 0:
+        raise HTTPException(
+            status_code=429,
+            detail={
+                "code": "daily_limit_reached",
+                "message": "You have reached your 5 free questions for today. Upgrade to Premium for unlimited questions.",
+            },
+        )
+
+    if plan_access["is_premium"]:
+        return user_doc
+
+    now = utc_now()
+    free_remaining = int(plan_access.get("free_daily_questions_remaining") or 0)
+    if free_remaining > 0:
+        next_count = int(plan_access["daily_questions_used"]) + 1
+        usage_payload = {"date": get_user_usage_snapshot(user_doc)["date"], "count": next_count}
+        await get_users_collection().update_one(
+            {"_id": user_doc["_id"]},
+            {"$set": {"usage.chat_daily": usage_payload, "updated_at": now}},
+        )
+        user_doc["usage"] = {**(user_doc.get("usage") or {}), "chat_daily": usage_payload}
+        return user_doc
+
+    extra_balance = get_extra_questions_balance(user_doc)
+    if extra_balance > 0:
+        await get_users_collection().update_one(
+            {"_id": user_doc["_id"]},
+            {"$inc": {"billing.extra_questions_balance": -1}, "$set": {"updated_at": now}},
+        )
+        billing = user_doc.get("billing") or {}
+        user_doc["billing"] = {
+            **billing,
+            "extra_questions_balance": max(0, extra_balance - 1),
+        }
+        return user_doc
+
+    return user_doc
+
+
+async def get_owned_session_doc(
+    user_id: str,
+    session_id: str,
+    projection: Optional[Dict[str, Any]] = None,
+) -> Optional[Dict[str, Any]]:
+    return await get_sessions_collection().find_one(
+        {"session_id": session_id, "user_id": user_id},
+        projection,
+    )
+
+
+async def get_authenticated_session(request: Request, projection: Optional[Dict[str, Any]] = None) -> tuple[Dict[str, Any], str, Dict[str, Any]]:
+    user_doc = await get_current_user(request)
+    session_id = request.headers.get("x-session-id")
+    if not session_id:
+        raise HTTPException(status_code=400, detail="Missing X-Session-Id header")
+
+    session_doc = await get_owned_session_doc(str(user_doc["_id"]), session_id, projection)
+    if not session_doc:
+        raise HTTPException(status_code=404, detail="Session not found for this account")
+    return user_doc, session_id, session_doc
+
+
+def serialize_message_doc(message_doc: Dict[str, Any], index: int) -> Dict[str, Any]:
+    role = "ai" if message_doc.get("role") == "assistant" else "user"
+    timestamp = message_doc.get("timestamp")
+    return {
+        "id": f"server-{index}",
+        "sender": role,
+        "content": message_doc.get("message", ""),
+        "timestamp": serialize_datetime_value(timestamp),
+    }
+
+
+def serialize_datetime_value(value: Any) -> Optional[str]:
+    if not hasattr(value, "isoformat"):
+        return value
+    dt_value = value
+    if getattr(dt_value, "tzinfo", None) is None:
+        dt_value = dt_value.replace(tzinfo=timezone.utc)
+    return dt_value.isoformat()
+
+
+def strip_markdown_for_preview(text: Optional[str]) -> str:
+    cleaned = str(text or "")
+    cleaned = re.sub(r"```[\s\S]*?```", " ", cleaned)
+    cleaned = re.sub(r"`([^`]*)`", r"\1", cleaned)
+    cleaned = re.sub(r"!\[[^\]]*\]\([^)]+\)", " ", cleaned)
+    cleaned = re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", cleaned)
+    cleaned = re.sub(r"(^|\s)#{1,6}\s*", " ", cleaned)
+    cleaned = re.sub(r"(\*\*|__|\*|_|~~)", "", cleaned)
+    cleaned = re.sub(r"^[>\-\+\*]\s*", "", cleaned, flags=re.MULTILINE)
+    cleaned = re.sub(r"\n{2,}", "\n", cleaned)
+    return " ".join(cleaned.split())
+
+
+def truncate_preview(text: Optional[str], limit: int = 140) -> str:
+    cleaned = strip_markdown_for_preview(text)
+    if len(cleaned) <= limit:
+        return cleaned
+    return cleaned[: limit - 1].rstrip() + "…"
+
+
+def build_session_history_item(session_doc: Dict[str, Any]) -> Dict[str, Any]:
+    messages = session_doc.get("messages") or []
+    last_message = messages[-1] if messages else {}
+    birth_details = session_doc.get("birth_details") or {}
+    created_at = session_doc.get("created_at")
+    updated_at = session_doc.get("updated_at")
+    return {
+        "session_id": session_doc.get("session_id"),
+        "full_name": session_doc.get("full_name") or "Untitled Reading",
+        "has_birth_details": bool(birth_details),
+        "birth_date": (
+            {
+                "year": birth_details.get("year"),
+                "month": birth_details.get("month"),
+                "date": birth_details.get("date"),
+            }
+            if birth_details
+            else None
+        ),
+        "message_count": len(messages),
+        "last_message_preview": truncate_preview(last_message.get("message")),
+        "last_message_role": last_message.get("role"),
+        "created_at": serialize_datetime_value(created_at),
+        "updated_at": serialize_datetime_value(updated_at),
+        "plan_snapshot": normalize_plan(session_doc.get("plan_snapshot")),
+    }
+
+
+def format_birth_confirmation(payload: Dict[str, Any]) -> str:
+    year = payload.get("year")
+    month = payload.get("month")
+    date = payload.get("date")
+    hours = payload.get("hours")
+    minutes = payload.get("minutes")
+    seconds = payload.get("seconds", 0)
+    latitude = payload.get("latitude")
+    longitude = payload.get("longitude")
+    timezone_name = payload.get("timezone") or "Asia/Kolkata"
+    settings = payload.get("settings") or {}
+
+    lines = [
+        "We have received your following Birth Details:",
+        "",
+        f"📅 Date of Birth: {date:02d} {datetime(2000, int(month), 1).strftime('%B')} {year}" if all(isinstance(v, int) for v in [year, month, date]) else "📅 Date of Birth: Provided",
+        f"🕒 Time of Birth: {int(hours):02d}:{int(minutes):02d}:{int(seconds):02d} (24-hr)" if hours is not None and minutes is not None else "🕒 Time of Birth: Provided",
+        f"🧾 ISO: {year}-{int(month):02d}-{int(date):02d}T{int(hours):02d}:{int(minutes):02d}:{int(seconds):02d}" if all(v is not None for v in [year, month, date, hours, minutes]) else "",
+        f"📍 Coordinates: {float(latitude):.4f}° {'N' if float(latitude) >= 0 else 'S'}, {abs(float(longitude)):.4f}° {'E' if float(longitude) >= 0 else 'W'}" if latitude is not None and longitude is not None else "📍 Coordinates: Provided",
+        f"⏰ Timezone: {timezone_name}",
+    ]
+
+    if settings:
+        lines.append("⚙️ Settings:")
+        for key, value in settings.items():
+            label = str(key).replace("_", " ").title()
+            lines.append(f"{label}: {value}")
+
+    lines.extend(["", "Your details are saved privately to your account session so you can continue this reading securely ✅"])
+    return "\n".join(line for line in lines if line != "")
 
 
 def get_ashtakoot_varna_class(moon_sign_index: int) -> int:
@@ -874,6 +1603,15 @@ def infer_question_focus(user_query: Optional[str]) -> Dict[str, Any]:
         topic_guidance = (
             "Use the 3rd house and its lord for younger siblings, and the 11th house and its lord for elder siblings. "
             "Use Mercury and Mars as supporting karakas and explain whether the indications are harmonious, distant, or mixed."
+        )
+    elif any(token in query for token in ["friend", "friends", "friendship", "social circle", "network", "companions"]):
+        topic = "friends_social_circle"
+        relevant_houses = [3, 11]
+        relevant_karakas = ["Mercury", "Moon", "Venus", "11th lord", "3rd lord"]
+        topic_guidance = (
+            "Focus on the 3rd and 11th houses for companions, peers, networks, and the type of social support the native attracts. "
+            "Use Mercury, Moon, and Venus as supporting indicators of communication style, emotional rapport, and social ease. "
+            "Explain what kind of friends are likely, how stable the circles are, and whether the native draws practical, intellectual, spiritual, or mixed company."
         )
     elif any(token in query for token in ["money", "wealth", "finance", "income", "rich", "prosperity"]):
         topic = "wealth"
@@ -1541,6 +2279,11 @@ def summarize_dasha_timeline(kundli: Dict[str, Any]) -> tuple[str, str]:
     return current_line, "; ".join(upcoming_parts) if upcoming_parts else "No later period data available."
 
 
+def summarize_current_dasha(kundli: Dict[str, Any]) -> str:
+    current_line, _ = summarize_dasha_timeline(kundli)
+    return current_line
+
+
 def summarize_divisional_notes(kundli: Dict[str, Any]) -> list[str]:
     notes: list[str] = []
     divisional_charts = kundli.get("divisional_charts") or {}
@@ -1665,6 +2408,38 @@ def build_detailed_chart_summary(kundli: Dict[str, Any], profile: Optional[Dict[
         lines.append("Rule-based remedies:")
         lines.extend(remedy_notes)
 
+    return "\n".join(lines)
+
+
+def build_free_tier_chart_summary(kundli: Dict[str, Any], profile: Optional[Dict[str, Any]] = None) -> str:
+    profile = profile or {}
+    planet_lookup = build_planet_lookup(kundli)
+    asc = kundli.get("ascendant") or {}
+    janma = kundli.get("janma_nakshatra") or {}
+    current_line, upcoming_line = summarize_dasha_timeline(kundli)
+    lines = [
+        "FREE TIER CHART SUMMARY:",
+        f"Name: {profile.get('full_name') or 'Native'}",
+        f"Lagna: {asc.get('sign', 'Unknown')} ({SIGN_KEYWORDS.get(asc.get('sign'), 'general temperament')})",
+    ]
+    if janma.get("name"):
+        lines.append(f"Janma Nakshatra: {janma.get('name')} pada {janma.get('pada', '?')}")
+    lines.append("Natal placements:")
+    for planet_name in PLANET_DISPLAY_ORDER:
+        planet = planet_lookup.get(planet_name)
+        if planet:
+            lines.append(summarize_planet_line(planet_name, kundli, planet))
+    house_lord_lines = summarize_house_lord_lines(kundli, planet_lookup)
+    if house_lord_lines:
+        lines.append("House lord map:")
+        lines.extend(house_lord_lines)
+    lines.append(f"Key yogas: {summarize_yogas(kundli)}")
+    lines.append(f"Current dasha: {current_line}")
+    lines.append(f"Upcoming periods: {upcoming_line}")
+    aspect_notes = summarize_aspect_notes(kundli)
+    if aspect_notes:
+        lines.append("Aspect highlights:")
+        lines.extend(aspect_notes)
     return "\n".join(lines)
 
 
@@ -2385,6 +3160,17 @@ def build_inline_chart_prompt(
     return "\n\n".join(part for part in prompt_parts if part)
 
 
+def build_chat_retry_fallback_response(user_query: str, kundli_available: bool) -> str:
+    if kundli_available:
+        return (
+            "I hit a temporary issue while generating the full reply, but I still have your chart context. "
+            "Please send the same question once more and I’ll continue with a chart-based answer."
+        )
+    return (
+        "I hit a temporary issue while generating the reply. Please send the question once more and I’ll continue."
+    )
+
+
 def build_prompt_kundli_context(kundli: Dict[str, Any], user_query: Optional[str] = None) -> Dict[str, Any]:
     query = (user_query or "").lower()
     wants_marriage = any(
@@ -2577,44 +3363,75 @@ def get_or_create_chain(session_id: str) -> ConversationChain:
 
 
 # ----- Helper to build the LLM prompt summary for kundli -----
-def build_kundli_prompt(kundli: Dict[str, Any], profile: Optional[Dict[str, Any]], today: datetime) -> str:
+def build_kundli_prompt(
+    kundli: Dict[str, Any],
+    profile: Optional[Dict[str, Any]],
+    today: datetime,
+    plan_access: Optional[Dict[str, Any]] = None,
+) -> str:
+    plan_access = plan_access or {}
+    is_premium = bool(plan_access.get("is_premium"))
     response_style = build_response_style_instructions(is_first_message=True)
     reasoning_framework = build_astrology_reasoning_framework(is_first_message=True)
-    chart_summary = build_detailed_chart_summary(kundli, profile)
-    core_rules = (
-        "You are writing the very first message inside Nakshatra AI after a user submits birth details.\n"
-        "You are a master Vedic astrologer (Jyotishi) with decades of practice. Use only the provided chart data. Do not use western terminology.\n\n"
-        "### Core Rules\n"
-        "1. NEVER ask for birth details. They are already available.\n"
-        "2. DO NOT recalculate Mahadasha or Antardasha. Use the given data only.\n"
-        "3. This message should feel premium, insightful, human, and welcoming, not like a raw placement dump.\n"
-        "4. Focus on what is special about the chart: baseline nature, hidden emotional layer, promise/potential, and the current dasha chapter.\n"
-        "5. Mention only 3 to 4 chart signatures that are genuinely the most compelling.\n"
-        "6. If a yoga is strong, present it confidently in plain language. If a yoga is conditional, mention it only with nuance.\n"
-        "7. Use crisp, premium Markdown formatting with bold headers and tasteful emojis. No tables.\n"
-        "8. End with one warm, concise prompt inviting the user to choose one of: career, relationships, or deeper purpose.\n"
-        "9. Follow the response mode instructions exactly for length and depth.\n\n"
-        "### Output Format (must follow this structure)\n"
-        "## 🌌 Welcome to your Nakshatra AI reading, {first_name}\n"
-        "A short 2-sentence opening that captures the user's chart essence.\n"
-        "### ✨ **What stands out in your chart**\n"
-        "One short paragraph.\n"
-        "### 🌙 **Your hidden strength**\n"
-        "One short paragraph.\n"
-        "### 💠 **The promise in this chart**\n"
-        "One short paragraph.\n"
-        "### 🔮 **Your current chapter**\n"
-        "One short paragraph using the current dasha.\n"
-        "Final line: a single warm question offering career, relationships, or purpose, with 1 to 3 tasteful emojis.\n\n"
-        "### Style Guidance\n"
-        "- Sound insightful, specific, and elegant.\n"
-        "- Translate astrological combinations into lived experience.\n"
-        "- Avoid sounding mechanical, generic, or overly mystical.\n"
-        "- Do not overstate weak combinations as certainties.\n\n"
-        "- Use bold emphasis for 1 to 2 key phrases in each section.\n"
-        "- Make the message feel visually rich and easy to scan.\n"
-        "- Emojis should feel refined, not loud or gimmicky.\n\n"
+    chart_summary = (
+        build_detailed_chart_summary(kundli, profile)
+        if is_premium
+        else build_free_tier_chart_summary(kundli, profile)
     )
+    if is_premium:
+        core_rules = (
+            "You are writing the very first message inside Nakshatra AI after a user submits birth details.\n"
+            "You are a master Vedic astrologer (Jyotishi) with decades of practice. Use only the provided chart data. Do not use western terminology.\n\n"
+            "### Core Rules\n"
+            "1. NEVER ask for birth details. They are already available.\n"
+            "2. DO NOT recalculate Mahadasha or Antardasha. Use the given data only.\n"
+            "3. This message should feel premium, insightful, human, and welcoming, not like a raw placement dump.\n"
+            "4. Focus on what is special about the chart: baseline nature, hidden emotional layer, promise/potential, and the current dasha chapter.\n"
+            "5. Mention only 3 to 4 chart signatures that are genuinely the most compelling.\n"
+            "6. If a yoga is strong, present it confidently in plain language. If a yoga is conditional, mention it only with nuance.\n"
+            "7. Use crisp, premium Markdown formatting with bold headers and tasteful emojis. No tables.\n"
+            "8. End with one warm, concise prompt inviting the user to choose one of: career, relationships, or deeper purpose.\n"
+            "9. Follow the response mode instructions exactly for length and depth.\n\n"
+            "### Output Format (must follow this structure)\n"
+            "## 🌌 Welcome to your Nakshatra AI reading, {first_name}\n"
+            "A short 2-sentence opening that captures the user's chart essence.\n"
+            "### ✨ **What stands out in your chart**\n"
+            "One short paragraph.\n"
+            "### 🌙 **Your hidden strength**\n"
+            "One short paragraph.\n"
+            "### 💠 **The promise in this chart**\n"
+            "One short paragraph.\n"
+            "### 🔮 **Your current chapter**\n"
+            "One short paragraph using the current dasha.\n"
+            "Final line: a single warm question offering career, relationships, or purpose, with 1 to 3 tasteful emojis.\n\n"
+            "### Style Guidance\n"
+            "- Sound insightful, specific, and elegant.\n"
+            "- Translate astrological combinations into lived experience.\n"
+            "- Avoid sounding mechanical, generic, or overly mystical.\n"
+            "- Do not overstate weak combinations as certainties.\n\n"
+            "- Use bold emphasis for 1 to 2 key phrases in each section.\n"
+            "- Make the message feel visually rich and easy to scan.\n"
+            "- Emojis should feel refined, not loud or gimmicky.\n\n"
+        )
+    else:
+        core_rules = (
+            "You are writing the first free-tier reading inside Nakshatra AI after a user submits birth details.\n"
+            "Use only the provided chart data and keep the experience warm, clear, and concise.\n\n"
+            "### Free Tier Rules\n"
+            "1. NEVER ask for birth details.\n"
+            "2. Use only the natal chart and current dasha context. Do not rely on divisional charts, remedies, or premium extras.\n"
+            "3. Keep this reading to 130 to 170 words.\n"
+            "4. Focus on overall personality, one major strength, one growth theme, and the current chapter.\n"
+            "5. End with a gentle note that deeper chart analysis is available in Premium.\n\n"
+            "### Output Format\n"
+            "## 🌌 Welcome to your Nakshatra AI reading, {first_name}\n"
+            "A short opening.\n"
+            "### ✨ What stands out\n"
+            "One short paragraph.\n"
+            "### 🔮 Current chapter\n"
+            "One short paragraph.\n"
+            "Final line: one concise next-step note.\n\n"
+        )
 
     prompt = f"""{core_rules}
 {reasoning_framework}
@@ -2649,10 +3466,8 @@ async def kundli(request: Request):
     Expects a JSON body with the birth details required by generate_chart.
     Session id is read from header 'X-Session-Id' (fallback to 'default').
     """
-    session_id = request.headers.get("x-session-id")
-    if not session_id:
-        logger.warning("Missing X-Session-Id header")
-        raise HTTPException(status_code=400, detail="Missing X-Session-Id header")
+    user_doc, session_id, _session_doc = await get_authenticated_session(request)
+    plan_access = build_plan_access(user_doc)
     
     try:
         payload = await request.json()
@@ -2673,6 +3488,10 @@ async def kundli(request: Request):
     logger.info("Stored kundli for session_id=%s", session_id)
     chart_summary = build_detailed_chart_summary(kundli, {"full_name": payload.get("fullName")})
     store_chart_summary(session_id, chart_summary)
+    confirmation_message = Message(
+        role="user",
+        message=format_birth_confirmation(payload),
+    )
     
     # Store session data in MongoDB
     try:
@@ -2681,38 +3500,28 @@ async def kundli(request: Request):
         
         logger.info("Attempting to save kundli data: full_name=%s, session_id=%s", full_name, session_id)
         
-        # Check if session already exists
-        existing_session = await sessions_collection.find_one({"session_id": session_id})
-        
-        if existing_session:
-            # Update existing session with birth data (not kundli result)
-            result = await sessions_collection.update_one(
-                {"session_id": session_id},
-                {"$set": {
-                    "full_name": full_name,
-                    "birth_details": payload,
-                    "updated_at": datetime.now(timezone.utc)
-                }}
-            )
-            logger.info("Updated session with birth data for session_id=%s, matched=%s, modified=%s", 
-                       session_id, result.matched_count, result.modified_count)
-        else:
-            # Create new session document (without kundli result)
-            session_doc = SessionData(
-                session_id=session_id,
-                full_name=full_name,
-                birth_details=payload,
-            )
-            result = await sessions_collection.insert_one(session_doc.dict())
-            logger.info("Created new session with birth data for session_id=%s, inserted_id=%s", 
-                       session_id, result.inserted_id)
+        result = await sessions_collection.update_one(
+            {"session_id": session_id, "user_id": str(user_doc["_id"])},
+            {"$set": {
+                "full_name": full_name,
+                "birth_details": payload,
+                "plan_snapshot": build_plan_access(user_doc)["plan"],
+                "messages": [confirmation_message.dict()],
+                "updated_at": datetime.now(timezone.utc),
+            }}
+        )
+        logger.info("Initialized session with birth data for session_id=%s, matched=%s, modified=%s",
+                    session_id, result.matched_count, result.modified_count)
     except Exception as e:
         logger.exception("Failed to save session data to MongoDB (non-fatal): %s", e)
 
     # Create or get the conversation chain for this session and add kundli as a system message in its memory
     chain = get_or_create_chain(session_id)
     try:
-        ensure_chart_summary_in_memory(chain, chart_summary)
+        ensure_chart_summary_in_memory(
+            chain,
+            chart_summary if plan_access["is_premium"] else build_free_tier_chart_summary(kundli, {"full_name": payload.get("fullName")}),
+        )
     except Exception:
         # memory addition is not critical; log and continue
         logger.exception("Failed to add kundli to session memory (non-fatal)")
@@ -2723,6 +3532,7 @@ async def kundli(request: Request):
             kundli,
             {"full_name": payload.get("fullName")},
             datetime.now(),
+            plan_access=plan_access,
         )
         llm_resp = llm.invoke(prompt)
         summary_text = getattr(llm_resp, "content", str(llm_resp)).strip()
@@ -2731,14 +3541,29 @@ async def kundli(request: Request):
         logger.exception("LLM invoke failed for kundli summary; returning kundli without summary")
         summary_text = None
 
+    try:
+        await get_sessions_collection().update_one(
+            {"session_id": session_id, "user_id": str(user_doc["_id"])},
+            {
+                "$push": {
+                    "messages": Message(
+                        role="assistant",
+                        message=summary_text or "Kundli generated successfully.",
+                    ).dict()
+                },
+                "$set": {"updated_at": datetime.now(timezone.utc)},
+            },
+        )
+    except Exception as e:
+        logger.exception("Failed to save kundli response to MongoDB (non-fatal): %s", e)
+
     return JSONResponse(content={"response": summary_text or "Kundli generated successfully."})
 
 
 @app.get("/charts")
 async def charts(request: Request):
-    session_id = request.headers.get("x-session-id")
-    if not session_id:
-        raise HTTPException(status_code=400, detail="Missing X-Session-Id header")
+    user_doc, session_id, _session_doc = await get_authenticated_session(request)
+    plan_access = build_plan_access(user_doc)
 
     chart_code = (request.query_params.get("code") or "D1").upper()
     style = (request.query_params.get("style") or "south").lower()
@@ -2747,6 +3572,11 @@ async def charts(request: Request):
         raise HTTPException(status_code=400, detail=f"Unsupported chart code: {chart_code}")
     if style not in CHART_STYLES:
         raise HTTPException(status_code=400, detail=f"Unsupported chart style: {style}")
+    if chart_code != "D1" and not plan_access["features"]["divisional_charts"]:
+        raise build_feature_lock_detail(
+            "divisional_charts",
+            "Navamsha and Dashamsha charts are available on Premium.",
+        )
 
     kundli = await get_or_restore_kundli(session_id)
     if not kundli:
@@ -2781,9 +3611,13 @@ async def charts(request: Request):
 
 @app.get("/remedies")
 async def remedies(request: Request):
-    session_id = request.headers.get("x-session-id")
-    if not session_id:
-        raise HTTPException(status_code=400, detail="Missing X-Session-Id header")
+    user_doc, session_id, _session_doc = await get_authenticated_session(request)
+    plan_access = build_plan_access(user_doc)
+    if not plan_access["features"]["remedies"]:
+        raise build_feature_lock_detail(
+            "remedies",
+            "Personalized remedies are a Premium feature.",
+        )
 
     kundli = await get_or_restore_kundli(session_id)
     if not kundli:
@@ -2800,9 +3634,13 @@ async def remedies(request: Request):
 
 @app.post("/compatibility")
 async def compatibility(request: Request):
-    session_id = request.headers.get("x-session-id")
-    if not session_id:
-        raise HTTPException(status_code=400, detail="Missing X-Session-Id header")
+    user_doc, session_id, _session_doc = await get_authenticated_session(request)
+    plan_access = build_plan_access(user_doc)
+    if not plan_access["features"]["compatibility"]:
+        raise build_feature_lock_detail(
+            "compatibility",
+            "Kundli Milan is available on Premium.",
+        )
 
     try:
         payload = await request.json()
@@ -2818,7 +3656,7 @@ async def compatibility(request: Request):
     try:
         sessions_collection = get_sessions_collection()
         session_doc = await sessions_collection.find_one(
-            {"session_id": session_id},
+            {"session_id": session_id, "user_id": str(user_doc["_id"])},
             {"birth_details": 1, "full_name": 1},
         )
     except Exception:
@@ -2860,7 +3698,9 @@ async def chat(request: Request):
     - Looks up kundli for that session and appends it to the input prompt (if present)
     - Uses a per-session ConversationChain to keep chats isolated
     """
-    session_id = request.headers.get("x-session-id", "default")
+    user_doc, session_id, _session_doc = await get_authenticated_session(request)
+    user_doc = await increment_daily_question_usage(user_doc)
+    plan_access = build_plan_access(user_doc)
 
     try:
         payload = await request.json()
@@ -2872,7 +3712,7 @@ async def chat(request: Request):
     if not user_query:
         raise HTTPException(status_code=400, detail="Missing 'query' in payload")
 
-    logger.info("Received chat (session=%s): %s", session_id, user_query)
+    logger.info("Received chat (session=%s user=%s): %s", session_id, user_doc.get("email"), user_query)
 
     # get or create chain for session
     chain = get_or_create_chain(session_id)
@@ -2887,16 +3727,11 @@ async def chat(request: Request):
         
         # Upsert: update if exists, create if doesn't
         await sessions_collection.update_one(
-            {"session_id": session_id},
+            {"session_id": session_id, "user_id": str(user_doc["_id"])},
             {
                 "$push": {"messages": user_message.dict()},
                 "$set": {"updated_at": datetime.now(timezone.utc)},
-                "$setOnInsert": {
-                    "session_id": session_id,
-                    "created_at": datetime.now(timezone.utc)
-                }
             },
-            upsert=True
         )
         logger.info("Saved user message to MongoDB for session_id=%s", session_id)
     except Exception as e:
@@ -2904,18 +3739,43 @@ async def chat(request: Request):
 
     # Attach preserved chart summary as system context when available.
     kundli = get_kundli(session_id)
+    if not kundli:
+        kundli = await get_or_restore_kundli(session_id)
+
     chart_summary = get_chart_summary(session_id)
+    prompt_chart_summary = chart_summary
     if kundli:
         if not chart_summary:
             chart_summary = build_detailed_chart_summary(kundli)
             store_chart_summary(session_id, chart_summary)
-        ensure_chart_summary_in_memory(chain, chart_summary)
+        prompt_chart_summary = chart_summary if plan_access["is_premium"] else build_free_tier_chart_summary(kundli)
+        ensure_chart_summary_in_memory(chain, prompt_chart_summary)
         response_style = build_response_style_instructions(user_query=user_query)
+        reasoning_framework = build_astrology_reasoning_framework(user_query=user_query)
+        premium_guidance = (
+            "Answer directly and support your conclusions with the most relevant placements, house lords, yogas, aspects, dashas, or divisional-chart notes.\n"
+            "Do not invent chart facts, yogas, dates, or remedies beyond the provided rule-based remedy notes.\n"
+        )
+        free_guidance = (
+            "Keep the answer concise and practical.\n"
+            "Use only natal-chart evidence plus the current dasha. Do not use divisional charts, remedies, compatibility scoring, transit predictions, or PDF-style report language.\n"
+            "If the user asks for a Premium-only feature, briefly say it is unlocked on Premium.\n"
+        )
+        evidence_rules = (
+            "Evidence rules:\n"
+            "1. Do not answer in a generic self-help way.\n"
+            "2. Explicitly mention at least two concrete astrological reasons from the chart, such as a planet in a sign/house, a house lord placement, a named yoga, an aspect, or the current dasha.\n"
+            "3. When giving a conclusion, tie it back to those chart factors in plain language.\n"
+            "4. For health questions, discuss astrological tendencies, vitality patterns, and vulnerable areas carefully, but do not present medical diagnosis or treatment.\n"
+            "5. For friendship or social-circle questions, judge mainly through the 3rd and 11th houses and the relevant karakas instead of giving generic friendship advice.\n"
+            "6. If chart context is unavailable, say so briefly instead of inventing an answer.\n"
+        )
         final_input = (
             "You are a seasoned Vedic astrologer (Jyotishi).\n"
             "Use only the chart summary and recent conversation below.\n"
-            "Do not invent chart facts, yogas, dates, or remedies beyond the provided rule-based remedy notes.\n"
-            "Answer directly and support your conclusions with the most relevant placements, house lords, yogas, aspects, dashas, or divisional-chart notes.\n"
+            f"{premium_guidance if plan_access['is_premium'] else free_guidance}"
+            f"{evidence_rules}\n"
+            f"{reasoning_framework}\n"
             "If the chart is mixed, say so clearly.\n"
             "If asked about death prediction or exact death timing, refuse briefly and redirect to safer guidance.\n"
             "Use readable Markdown and no tables.\n\n"
@@ -2926,22 +3786,51 @@ async def chat(request: Request):
         final_input = user_query
     prune_memory_keep_last(chain, keep_last_pairs=1)
     # run the conversation chain
+    prompt_payload = build_inline_chart_prompt(chain, prompt_chart_summary if kundli else None, final_input)
+    resp_text = ""
+
     try:
-        prompt_payload = build_inline_chart_prompt(chain, chart_summary if kundli else None, final_input)
         llm_resp = llm.invoke(prompt_payload)
         resp_text = getattr(llm_resp, "content", str(llm_resp)).strip()
-        if not resp_text:
+    except Exception:
+        logger.warning("Primary chat invoke failed for session %s", session_id, exc_info=True)
+
+    if not resp_text:
+        try:
             retry_resp = llm.invoke(prompt_payload)
             resp_text = getattr(retry_resp, "content", str(retry_resp)).strip()
-        if not resp_text:
-            raise ValueError("Empty response from LLM")
-        resp_text = complete_if_truncated(resp_text)
+        except Exception:
+            logger.warning("Retry chat invoke failed for session %s", session_id, exc_info=True)
+
+    if not resp_text:
+        fallback_prompt = (
+            "You are a Vedic astrologer. Answer briefly but concretely using only the chart context provided. "
+            "Mention at least two astrological reasons when chart context exists. "
+            "If chart context is unavailable, say that briefly.\n\n"
+            f"Chart Summary:\n{prompt_chart_summary if kundli and prompt_chart_summary else 'Chart context unavailable.'}\n\n"
+            f"User Query: {user_query}"
+        )
+        try:
+            repair_resp = repair_llm.invoke(fallback_prompt)
+            resp_text = getattr(repair_resp, "content", str(repair_resp)).strip()
+        except Exception:
+            logger.warning("Repair chat invoke failed for session %s", session_id, exc_info=True)
+
+    if resp_text:
+        try:
+            resp_text = complete_if_truncated(resp_text)
+        except Exception:
+            logger.warning("Truncation repair failed for session %s", session_id, exc_info=True)
+    else:
+        logger.warning("Returning fallback chat response for session %s after empty model output", session_id)
+        resp_text = build_chat_retry_fallback_response(user_query, bool(kundli))
+
+    try:
         chain.memory.chat_memory.add_user_message(user_query)
         chain.memory.chat_memory.add_ai_message(resp_text)
         prune_memory_keep_last(chain, keep_last_pairs=1)
     except Exception:
-        logger.exception("ConversationChain failed for session %s", session_id)
-        raise HTTPException(status_code=500, detail="LLM conversation failed")
+        logger.warning("Failed to update in-memory chat history for session %s", session_id, exc_info=True)
     
     # Save assistant response to MongoDB
     try:
@@ -2952,7 +3841,7 @@ async def chat(request: Request):
         )
         
         await sessions_collection.update_one(
-            {"session_id": session_id},
+            {"session_id": session_id, "user_id": str(user_doc["_id"])},
             {
                 "$push": {"messages": assistant_message.dict()},
                 "$set": {"updated_at": datetime.now(timezone.utc)}
