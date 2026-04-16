@@ -1,15 +1,30 @@
 import os
 import json
 import logging
+import re
 from typing import Any, Dict, Optional
 from datetime import datetime, timezone
 from threading import Lock
 from contextlib import asynccontextmanager
+from tempfile import TemporaryDirectory
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from jyotichart import (
+    JUPITER,
+    KETU,
+    MARS,
+    MERCURY,
+    MOON,
+    NorthChart,
+    RAHU,
+    SATURN,
+    SUN,
+    SouthChart,
+    VENUS,
+)
 
 from langchain_groq import ChatGroq
 from langchain.chains import ConversationChain
@@ -17,7 +32,13 @@ from langchain.memory import ConversationBufferMemory
 from langchain.schema import AIMessage, HumanMessage, SystemMessage
 
 # from api.astrology import get_kundli_data // Can use freeastrologyapi.com to get kundli data
-from astro.astro import generate_chart
+from astro.astro import (
+    DEBILITATION_SIGNS,
+    EXALTATION_SIGNS,
+    MOOLATRIKONA_RANGES,
+    OWN_SIGNS,
+    generate_chart,
+)
 from database import connect_to_mongo, close_mongo_connection, get_sessions_collection
 from models import SessionData, Message
 
@@ -88,6 +109,39 @@ PLANET_THEMES = {
 }
 
 PLANET_DISPLAY_ORDER = ["Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn", "Rahu", "Ketu"]
+PLANET_SORT_ORDER = {name: index for index, name in enumerate(PLANET_DISPLAY_ORDER)}
+
+CHART_OPTIONS = {
+    "D1": {"label": "Lagna / Rasi", "source": "natal"},
+    "D9": {"label": "Navamsha", "source": "divisional"},
+    "D10": {"label": "Dashamsha", "source": "divisional"},
+}
+
+CHART_STYLES = {"north", "south"}
+
+JYOTI_PLANETS = {
+    "Sun": SUN,
+    "Moon": MOON,
+    "Mars": MARS,
+    "Mercury": MERCURY,
+    "Jupiter": JUPITER,
+    "Venus": VENUS,
+    "Saturn": SATURN,
+    "Rahu": RAHU,
+    "Ketu": KETU,
+}
+
+PLANET_SHORT_SYMBOLS = {
+    "Sun": "Su",
+    "Moon": "Mo",
+    "Mars": "Ma",
+    "Mercury": "Me",
+    "Jupiter": "Ju",
+    "Venus": "Ve",
+    "Saturn": "Sa",
+    "Rahu": "Ra",
+    "Ketu": "Ke",
+}
 
 # ----- Database Lifespan -----
 @asynccontextmanager
@@ -1079,6 +1133,445 @@ def build_detailed_chart_summary(kundli: Dict[str, Any], profile: Optional[Dict[
     return "\n".join(lines)
 
 
+def derive_ketu_from_chart_data(chart_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    rahu = next(
+        (
+            planet
+            for planet in chart_data.get("planets", [])
+            if planet.get("name") in {"TrueNode", "MeanNode", "Rahu"} and "error" not in planet
+        ),
+        None,
+    )
+    if not rahu:
+        return None
+
+    ketu_house = ((int(rahu["house"]) + 5) % 12) + 1
+    sign_index = int(rahu.get("sign_index", 0) or 0)
+    ketu_sign_index = ((sign_index + 5) % 12) + 1 if sign_index else None
+
+    return {
+        "name": "Ketu",
+        "house": ketu_house,
+        "sign": ZODIAC_SIGNS[ketu_sign_index - 1] if ketu_sign_index else "Unknown",
+        "sign_index": ketu_sign_index,
+        "degree_in_sign": rahu.get("degree_in_sign"),
+        "retrograde": True,
+        "source_sign": (
+            ZODIAC_SIGNS[(ZODIAC_SIGNS.index(rahu["source_sign"]) + 6) % 12]
+            if rahu.get("source_sign") in ZODIAC_SIGNS
+            else None
+        ),
+        "source_house": (((int(rahu["source_house"]) + 5) % 12) + 1) if rahu.get("source_house") else None,
+    }
+
+
+def get_chart_data_for_code(kundli: Dict[str, Any], chart_code: str) -> Dict[str, Any]:
+    if chart_code == "D1":
+        return kundli
+    chart = (kundli.get("divisional_charts") or {}).get(chart_code)
+    if not chart:
+        raise HTTPException(status_code=404, detail=f"{chart_code} chart is not available")
+    return chart
+
+
+def build_chart_planet_lookup(chart_data: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
+    lookup: Dict[str, Dict[str, Any]] = {}
+
+    for planet in chart_data.get("planets", []):
+        if "error" in planet:
+            continue
+        canonical_name = canonical_planet_name(planet.get("name"))
+        if canonical_name == "Rahu" and canonical_name in lookup:
+            continue
+        enriched = dict(planet)
+        enriched["_canonical_name"] = canonical_name
+        lookup[canonical_name] = enriched
+
+    ketu = derive_ketu_from_chart_data(chart_data)
+    if ketu:
+        lookup["Ketu"] = ketu
+
+    return lookup
+
+
+def is_within_degree_range(value: float, start_deg: float, end_deg: float) -> bool:
+    return start_deg <= value < end_deg or (end_deg == 30.0 and value <= end_deg)
+
+
+def get_dignity_status(planet_name: str, sign_name: Optional[str], degree_in_sign: Optional[float]) -> Optional[str]:
+    if planet_name not in EXALTATION_SIGNS or sign_name not in ZODIAC_SIGNS or degree_in_sign is None:
+        return None
+
+    degree_value = float(degree_in_sign)
+    exaltation = EXALTATION_SIGNS[planet_name]
+    debilitation = DEBILITATION_SIGNS[planet_name]
+    moolatrikona = MOOLATRIKONA_RANGES[planet_name]
+
+    if sign_name == exaltation["sign"]:
+        return "exalted"
+    if sign_name == debilitation["sign"]:
+        return "debilitated"
+    if sign_name == moolatrikona["sign"] and is_within_degree_range(
+        degree_value,
+        moolatrikona["start_deg"],
+        moolatrikona["end_deg"],
+    ):
+        return "moolatrikona"
+    if sign_name in OWN_SIGNS.get(planet_name, set()):
+        return "own sign"
+    return None
+
+
+def get_chart_condition_data(kundli: Dict[str, Any], planet_name: str) -> Dict[str, Any]:
+    conditions = kundli.get("planetary_conditions") or {}
+    if planet_name in conditions:
+        return conditions[planet_name] or {}
+    if planet_name == "Rahu":
+        return conditions.get("TrueNode") or conditions.get("MeanNode") or {}
+    return {}
+
+
+def get_chart_influence_label(
+    kundli: Dict[str, Any],
+    chart_code: str,
+    planet_name: str,
+    statuses: list[str],
+) -> str:
+    score = 0
+
+    if "Exalted" in statuses:
+        score += 2
+    if "Own Sign" in statuses or "Moolatrikona" in statuses:
+        score += 1
+    if "Vargottama" in statuses:
+        score += 1
+    if "Debilitated" in statuses:
+        score -= 2
+    if "Combust" in statuses:
+        score -= 1
+
+    if chart_code == "D1":
+        functional = (get_chart_condition_data(kundli, planet_name).get("functional_nature") or {}).get("status")
+        if functional == "functional_benefic":
+            score += 2
+        elif functional == "functional_malefic":
+            score -= 2
+
+    if score >= 2:
+        return "supportive"
+    if score <= -2:
+        return "challenging"
+    return "mixed"
+
+
+def build_chart_hover_summary(
+    kundli: Dict[str, Any],
+    chart_code: str,
+    planet_name: str,
+    planet: Dict[str, Any],
+    statuses: list[str],
+    influence: str,
+) -> str:
+    sign = planet.get("sign", "Unknown")
+    house = int(planet.get("house") or 0)
+    planet_theme = PLANET_THEMES.get(planet_name, "core life themes")
+    house_theme = HOUSE_THEMES.get(house, "important life areas")
+
+    if influence == "supportive":
+        tone_line = "This placement is broadly supportive and tends to help the native express this planet constructively."
+    elif influence == "challenging":
+        tone_line = "This placement is more challenging and may require conscious effort, maturity, or remedies to handle well."
+    else:
+        tone_line = "This placement is mixed, so results can be useful but tend to come with some complexity or fluctuation."
+
+    status_line = ""
+    if statuses:
+        status_line = " Current signals: " + ", ".join(statuses).lower() + "."
+
+    chart_context = {
+        "D1": "In the natal chart,",
+        "D9": "In the Navamsha,",
+        "D10": "In the Dashamsha,",
+    }.get(chart_code, "In this chart,")
+
+    return (
+        f"{planet_name} signifies {planet_theme}. "
+        f"{chart_context} it works through {sign} in the {house} house, highlighting {house_theme}. "
+        f"{tone_line}{status_line}"
+    )
+
+
+def is_vargottama_placement(
+    planet_name: str,
+    chart_code: str,
+    sign_name: Optional[str],
+    natal_lookup: Dict[str, Dict[str, Any]],
+    d9_lookup: Dict[str, Dict[str, Any]],
+) -> bool:
+    if sign_name not in ZODIAC_SIGNS:
+        return False
+
+    if chart_code == "D1":
+        return (d9_lookup.get(planet_name) or {}).get("sign") == sign_name
+    if chart_code == "D9":
+        return (natal_lookup.get(planet_name) or {}).get("sign") == sign_name
+    return False
+
+
+def build_chart_planet_details(kundli: Dict[str, Any], chart_code: str) -> list[Dict[str, Any]]:
+    chart_data = get_chart_data_for_code(kundli, chart_code)
+    chart_lookup = build_chart_planet_lookup(chart_data)
+    natal_lookup = build_chart_planet_lookup(kundli)
+    d9_lookup = build_chart_planet_lookup((kundli.get("divisional_charts") or {}).get("D9") or {})
+    details: list[Dict[str, Any]] = []
+
+    for planet_name in PLANET_DISPLAY_ORDER:
+        planet = chart_lookup.get(planet_name)
+        if not planet:
+            continue
+
+        statuses: list[str] = []
+        dignity_status = get_dignity_status(
+            planet_name,
+            planet.get("sign"),
+            planet.get("degree_in_sign"),
+        )
+        if dignity_status:
+            statuses.append(dignity_status.title())
+
+        if chart_code == "D1":
+            combustion = (get_chart_condition_data(kundli, planet_name).get("combustion") or {})
+            if combustion.get("status") == "combust":
+                statuses.append("Combust")
+
+        if planet.get("retrograde"):
+            statuses.append("Retrograde")
+
+        if is_vargottama_placement(
+            planet_name,
+            chart_code,
+            planet.get("sign"),
+            natal_lookup,
+            d9_lookup,
+        ):
+            statuses.append("Vargottama")
+
+        influence = get_chart_influence_label(kundli, chart_code, planet_name, statuses)
+        hover_summary = build_chart_hover_summary(
+            kundli,
+            chart_code,
+            planet_name,
+            planet,
+            statuses,
+            influence,
+        )
+
+        details.append(
+            {
+                "name": planet_name,
+                "short_name": PLANET_SHORT_SYMBOLS.get(planet_name, planet_name[:2]),
+                "sign": planet.get("sign"),
+                "house": planet.get("house"),
+                "degree_in_sign": planet.get("degree_in_sign"),
+                "retrograde": bool(planet.get("retrograde", False)),
+                "source_sign": planet.get("source_sign"),
+                "source_house": planet.get("source_house"),
+                "statuses": statuses,
+                "influence": influence,
+                "hover_summary": hover_summary,
+            }
+        )
+
+    details.sort(key=lambda item: PLANET_SORT_ORDER.get(item["name"], 999))
+    return details
+
+
+def build_chart_label_suffix(statuses: list[str]) -> str:
+    suffix = ""
+    if "Retrograde" in statuses:
+        suffix += "*"
+    if "Exalted" in statuses:
+        suffix += "↑"
+    elif "Debilitated" in statuses:
+        suffix += "↓"
+    return suffix
+
+
+def add_svg_text_attr(open_tag: str, attr_name: str, attr_value: str) -> str:
+    if f'{attr_name}="' in open_tag:
+        return open_tag
+    return open_tag[:-1] + f' {attr_name}="{attr_value}">'
+
+
+def inject_chart_planet_markers(svg: str, details: list[Dict[str, Any]]) -> str:
+    for detail in details:
+        base_label = PLANET_SHORT_SYMBOLS.get(detail["name"], detail["name"][:2])
+        suffix = build_chart_label_suffix(detail.get("statuses") or [])
+
+        pattern = rf'(<text\b[^>]*class="[^"]*\bplanet\b[^"]*"[^>]*>)(?:\({re.escape(base_label)}\)|{re.escape(base_label)})(</text>)'
+        def repl(match: re.Match[str]) -> str:
+            open_tag = add_svg_text_attr(match.group(1), "data-planet", detail["name"])
+            open_tag = add_svg_text_attr(open_tag, "data-short-name", base_label)
+            return f"{open_tag}{base_label}{suffix}{match.group(2)}"
+
+        svg = re.sub(pattern, repl, svg, count=1)
+
+    return svg
+
+
+def shift_sign_numbers_right(svg: str, shift_px: float = 6.0) -> str:
+    def repl(match: re.Match[str]) -> str:
+        x_value = float(match.group(1))
+        return f'x="{x_value + shift_px:g}"'
+
+    return re.sub(r'x="([0-9]+(?:\.[0-9]+)?)"(?=[^>]*class="sign-num")', repl, svg)
+
+
+def prepare_planets_for_chart(chart_data: Dict[str, Any]) -> list[Dict[str, Any]]:
+    planets = []
+    rahu_added = False
+
+    for planet in chart_data.get("planets", []):
+        if "error" in planet:
+            continue
+        canonical_name = canonical_planet_name(planet.get("name"))
+        if canonical_name == "Rahu":
+            if rahu_added:
+                continue
+            rahu_added = True
+        if canonical_name not in JYOTI_PLANETS or canonical_name == "Ketu":
+            continue
+        planets.append({
+            "name": canonical_name,
+            "house": int(planet["house"]),
+            "retrograde": bool(planet.get("retrograde", False)),
+        })
+
+    ketu = derive_ketu_from_chart_data(chart_data)
+    if ketu:
+        planets.append({
+            "name": "Ketu",
+            "house": int(ketu["house"]),
+            "retrograde": True,
+        })
+
+    return planets
+
+
+def style_chart_object(chart: Any, style: str) -> None:
+    house_fills = ["#0f172a"] * 12
+    if style == "north":
+        chart.updatechartcfg(
+            aspect=False,
+            clr_background="#020617",
+            clr_outbox="#334155",
+            clr_line="#64748b",
+            clr_sign="#cbd5e1",
+            clr_houses=house_fills,
+        )
+    else:
+        chart.updatechartcfg(
+            aspect=False,
+            clr_background="#020617",
+            clr_outbox="#334155",
+            clr_inbox="#334155",
+            clr_line="#64748b",
+            clr_Asc="#cbd5e1",
+            clr_houses=house_fills,
+        )
+
+
+def render_chart_svg(
+    kundli: Dict[str, Any],
+    chart_code: str,
+    style: str,
+    person_name: Optional[str] = None,
+) -> str:
+    chart_data = get_chart_data_for_code(kundli, chart_code)
+    ascendant = chart_data.get("ascendant") or {}
+    asc_sign = ascendant.get("sign")
+    if not asc_sign:
+        raise HTTPException(status_code=500, detail=f"{chart_code} chart is missing ascendant data")
+
+    chart_title = CHART_OPTIONS.get(chart_code, {}).get("label", chart_code)
+    safe_name = (person_name or "native").replace(" ", "_")
+
+    if style == "north":
+        chart_obj = NorthChart(chart_title, safe_name)
+    elif style == "south":
+        chart_obj = SouthChart(chart_title, safe_name)
+    else:
+        raise HTTPException(status_code=400, detail="Unsupported chart style")
+
+    chart_obj.set_ascendantsign(asc_sign)
+    style_chart_object(chart_obj, style)
+    chart_details = build_chart_planet_details(kundli, chart_code)
+
+    for planet in prepare_planets_for_chart(chart_data):
+        chart_obj.add_planet(
+            JYOTI_PLANETS[planet["name"]],
+            PLANET_SHORT_SYMBOLS[planet["name"]],
+            planet["house"],
+            retrograde=planet["retrograde"],
+            colour="#f8fafc",
+        )
+
+    with TemporaryDirectory() as temp_dir:
+        file_name = f"{chart_code.lower()}_{style}"
+        chart_obj.draw(temp_dir, file_name)
+        svg_path = os.path.join(temp_dir, f"{file_name}.svg")
+        with open(svg_path, "r", encoding="utf-16") as svg_file:
+            svg = svg_file.read()
+
+    svg = svg.replace(
+        ".planet { font-size: 20px; font-weight: bold; font-family: sans-serif; }",
+        ".planet { font-size: 16px; font-weight: bold; font-family: sans-serif; cursor: pointer; }"
+        "\n    .planet-hover { transition: transform 140ms ease, fill 140ms ease; transform-box: fill-box; transform-origin: center; }"
+        "\n    .planet-hover:hover { transform: scale(1.18); fill: #ffffff; }",
+    )
+    svg = svg.replace('class="planet"', 'class="planet planet-hover"')
+    svg = svg.replace(".sign-num { font-size: 22px;", ".sign-num { font-size: 17px;")
+    svg = svg.replace(' text-decoration="underline"', "")
+    svg = re.sub(r'(<text[^>]*class="sign-num"[^>]*>)(0)([1-9])(<\/text>)', r"\1\3\4", svg)
+    svg = shift_sign_numbers_right(svg)
+    svg = inject_chart_planet_markers(svg, chart_details)
+
+    return svg
+
+
+async def get_or_restore_kundli(session_id: str) -> Optional[Dict[str, Any]]:
+    kundli = get_kundli(session_id)
+    if kundli:
+        return kundli
+
+    try:
+        sessions_collection = get_sessions_collection()
+        session_doc = await sessions_collection.find_one(
+            {"session_id": session_id},
+            {"birth_details": 1, "full_name": 1},
+        )
+    except Exception:
+        logger.exception("Failed to load session data for chart restore")
+        return None
+
+    birth_details = (session_doc or {}).get("birth_details")
+    if not birth_details:
+        return None
+
+    try:
+        kundli = json.loads(generate_chart(birth_details, house_system="WS"))
+    except Exception:
+        logger.exception("Failed to regenerate kundli for session_id=%s", session_id)
+        return None
+
+    store_kundli(session_id, kundli)
+    store_chart_summary(
+        session_id,
+        build_detailed_chart_summary(kundli, {"full_name": (session_doc or {}).get("full_name")}),
+    )
+    return kundli
+
+
 def ensure_chart_summary_in_memory(chain: ConversationChain, chart_summary: str) -> None:
     if not chart_summary:
         return
@@ -1462,6 +1955,51 @@ async def kundli(request: Request):
         summary_text = None
 
     return JSONResponse(content={"response": summary_text or "Kundli generated successfully."})
+
+
+@app.get("/charts")
+async def charts(request: Request):
+    session_id = request.headers.get("x-session-id")
+    if not session_id:
+        raise HTTPException(status_code=400, detail="Missing X-Session-Id header")
+
+    chart_code = (request.query_params.get("code") or "D1").upper()
+    style = (request.query_params.get("style") or "south").lower()
+
+    if chart_code not in CHART_OPTIONS:
+        raise HTTPException(status_code=400, detail=f"Unsupported chart code: {chart_code}")
+    if style not in CHART_STYLES:
+        raise HTTPException(status_code=400, detail=f"Unsupported chart style: {style}")
+
+    kundli = await get_or_restore_kundli(session_id)
+    if not kundli:
+        raise HTTPException(status_code=404, detail="Kundli not found for this session")
+
+    try:
+        chart_data = get_chart_data_for_code(kundli, chart_code)
+        svg = render_chart_svg(
+            kundli,
+            chart_code=chart_code,
+            style=style,
+            person_name=session_id,
+        )
+        details = build_chart_planet_details(kundli, chart_code)
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("Failed to render chart SVG for session_id=%s", session_id)
+        raise HTTPException(status_code=500, detail="Failed to render chart")
+
+    return JSONResponse(
+        content={
+            "chart_code": chart_code,
+            "chart_label": CHART_OPTIONS[chart_code]["label"],
+            "style": style,
+            "svg": svg,
+            "ascendant": chart_data.get("ascendant") or {},
+            "details": details,
+        }
+    )
 
 
 @app.post("/chat")
