@@ -94,6 +94,11 @@ function formatDateTime(value?: string | null) {
   }).format(date)
 }
 
+function formatPremiumDaysRemaining(daysRemaining?: number | null) {
+  if (!daysRemaining || daysRemaining <= 0) return null
+  return `${daysRemaining} day${daysRemaining === 1 ? "" : "s"} left`
+}
+
 export default function BillingPlansModal({ backendUrl, open, onClose }: BillingPlansModalProps) {
   const { token, user, refreshUser } = useAuth()
   const [plans, setPlans] = React.useState<BillingPlan[]>([])
@@ -247,6 +252,7 @@ export default function BillingPlansModal({ backendUrl, open, onClose }: Billing
   if (!open) return null
 
   const premiumUntil = formatDateTime(user?.billing?.premium_until)
+  const premiumDaysRemaining = formatPremiumDaysRemaining(user?.billing?.premium_days_remaining)
   const extraQuestionBalance = user?.billing?.extra_questions_balance ?? 0
 
   return (
@@ -279,9 +285,14 @@ export default function BillingPlansModal({ backendUrl, open, onClose }: Billing
               </div>
               <div className="mt-2 text-sm leading-6 text-slate-300">
                 {user?.plan_access.is_premium
-                  ? `Premium is active${premiumUntil ? ` until ${premiumUntil}` : ""}.`
+                  ? `Premium is active${premiumDaysRemaining ? ` with ${premiumDaysRemaining}` : ""}${premiumUntil ? ` until ${premiumUntil}` : ""}.`
                   : `${user?.plan_access.daily_questions_remaining ?? 0} questions are currently available on your account.`}
               </div>
+              {user?.plan_access.is_premium && premiumDaysRemaining ? (
+                <div className="mt-2 text-xs text-cyan-100/85">
+                  Your premium membership has {premiumDaysRemaining}.
+                </div>
+              ) : null}
               {!user?.plan_access.is_premium ? (
                 <div className="mt-2 text-xs text-slate-400">
                   Free daily left: {user?.plan_access.free_daily_questions_remaining ?? 0} • Paid booster balance: {extraQuestionBalance}

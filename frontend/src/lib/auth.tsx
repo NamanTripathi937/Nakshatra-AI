@@ -27,6 +27,7 @@ export type PlanAccess = {
 export type BillingSnapshot = {
   premium_until?: string | null
   has_active_premium?: boolean
+  premium_days_remaining?: number | null
   extra_questions_balance?: number
   active_membership_code?: string | null
   active_membership_name?: string | null

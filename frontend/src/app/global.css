@@ -228,10 +228,10 @@ body::before {
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
+  background-attachment: fixed;
   z-index: -1;
   pointer-events: none;
   filter: blur(0.5rem); /* keep or reduce */
-  will-change: transform;
 }
 
 
@@ -248,29 +248,19 @@ body::before {
   background-image: url('/zodiac.png');
   background-repeat: no-repeat;
   background-position: center;
-  background-size: 54%; 
+  background-size: 54%;
+  background-attachment: fixed;
 
   /* visual tweaks */
   opacity: .5;            /* adjust darkness / visibility */
   mix-blend-mode: screen;  /* optional: try overlay, screen, multiply for different effects */
-  will-change: transform;
-
-  /* animation (rotation) - GPU-friendly transform */
+  transform: translateZ(0);
   transform-origin: 50% 50%;
+  will-change: transform;
   animation: slow-rotate 60s linear infinite;
 }
 
-/* slow rotate keyframes */
 @keyframes slow-rotate {
-  from { transform: rotate(0deg); }
-  to   { transform: rotate(360deg); }
+  from { transform: translateZ(0) rotate(0deg); }
+  to   { transform: translateZ(0) rotate(360deg); }
 }
-
-/* Respect users who prefer reduced motion */
-@media (prefers-reduced-motion: reduce) {
-  .mid-layer {
-    animation: none;
-  }
-}
-
-

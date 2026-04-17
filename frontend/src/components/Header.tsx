@@ -9,6 +9,11 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { useAuth } from "@/lib/auth";
 import { getBackendUrl } from "@/lib/utils";
 
+function formatPremiumDaysRemaining(daysRemaining?: number | null) {
+  if (!daysRemaining || daysRemaining <= 0) return "Premium account"
+  return `${daysRemaining} day${daysRemaining === 1 ? "" : "s"} left`
+}
+
 export default function Header() {
   const [historyOpen, setHistoryOpen] = useState(false)
   const [billingOpen, setBillingOpen] = useState(false)
@@ -16,6 +21,7 @@ export default function Header() {
   const plan = user?.plan_access.plan ?? "free"
   const remaining = user?.plan_access.daily_questions_remaining
   const extraQuestions = user?.plan_access.extra_questions_balance ?? 0
+  const premiumDaysRemaining = user?.billing?.premium_days_remaining
   const backendUrl = getBackendUrl()
 
   return (  
@@ -66,7 +72,7 @@ export default function Header() {
                           <div className="text-sm font-medium text-white">{user.name.split(" ")[0]}</div>
                           <div className="mt-1 text-[11px] text-slate-400">
                             {plan === "premium"
-                              ? "Premium account"
+                              ? formatPremiumDaysRemaining(premiumDaysRemaining)
                               : extraQuestions > 0
                                 ? `${remaining ?? 0} questions available (${extraQuestions} paid)`
                                 : `${remaining ?? 0} free questions left today`}
@@ -110,7 +116,7 @@ export default function Header() {
                       <div className="text-sm font-medium text-white">{user.name.split(" ")[0]}</div>
                       <div className="text-[11px] text-slate-400">
                         {plan === "premium"
-                          ? "Premium account"
+                          ? formatPremiumDaysRemaining(premiumDaysRemaining)
                           : extraQuestions > 0
                             ? `${remaining ?? 0} questions available (${extraQuestions} paid)`
                             : `${remaining ?? 0} free questions left today`}

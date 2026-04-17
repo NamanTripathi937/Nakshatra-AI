@@ -2,6 +2,7 @@ import base64
 import hashlib
 import hmac
 import json
+import math
 import os
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Optional
@@ -68,6 +69,15 @@ def get_extra_questions_balance(user_doc: Dict[str, Any]) -> int:
 def get_premium_until(user_doc: Dict[str, Any]) -> Optional[datetime]:
     billing = get_billing_payload(user_doc)
     return _coerce_datetime(billing.get("premium_until"))
+
+
+def get_premium_days_remaining(user_doc: Dict[str, Any], now: Optional[datetime] = None) -> Optional[int]:
+    current_time = now or utc_now()
+    premium_until = get_premium_until(user_doc)
+    if premium_until is None or premium_until <= current_time:
+        return None
+    remaining_seconds = (premium_until - current_time).total_seconds()
+    return max(1, math.ceil(remaining_seconds / 86400))
 
 
 def get_effective_plan(user_doc: Dict[str, Any], now: Optional[datetime] = None) -> str:
@@ -210,6 +220,7 @@ def build_plan_access(user_doc: Dict[str, Any]) -> Dict[str, Any]:
 
 def build_user_payload(user_doc: Dict[str, Any]) -> Dict[str, Any]:
     premium_until = get_premium_until(user_doc)
+    premium_days_remaining = get_premium_days_remaining(user_doc)
     billing = get_billing_payload(user_doc)
     return {
         "id": str(user_doc["_id"]),
@@ -220,6 +231,7 @@ def build_user_payload(user_doc: Dict[str, Any]) -> Dict[str, Any]:
         "billing": {
             "premium_until": serialize_datetime(premium_until),
             "has_active_premium": bool(premium_until and premium_until > utc_now()),
+            "premium_days_remaining": premium_days_remaining,
             "extra_questions_balance": get_extra_questions_balance(user_doc),
             "active_membership_code": billing.get("active_membership_code"),
             "active_membership_name": billing.get("active_membership_name"),
