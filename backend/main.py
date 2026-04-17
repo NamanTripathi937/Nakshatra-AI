@@ -2,6 +2,7 @@ import os
 import json
 import logging
 import re
+import time
 from typing import Any, Dict, Optional
 from datetime import datetime, timedelta, timezone
 from threading import Lock
@@ -12,6 +13,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+import httpx
 from pymongo import ReturnDocument
 from jyotichart import (
     JUPITER,
@@ -28,8 +30,6 @@ from jyotichart import (
 )
 
 from langchain_groq import ChatGroq
-from langchain.chains import ConversationChain
-from langchain.memory import ConversationBufferMemory
 from langchain.schema import AIMessage, HumanMessage, SystemMessage
 
 # from api.astrology import get_kundli_data // Can use freeastrologyapi.com to get kundli data
@@ -748,33 +748,321 @@ async def list_sessions(request: Request):
 
 # ----- Load env and validate -----
 load_dotenv()
+LLM_PROVIDER = (os.getenv("LLM_PROVIDER") or "groq").strip().lower()
+if LLM_PROVIDER not in {"groq", "cerebras"}:
+    logger.warning("Unsupported LLM_PROVIDER=%s, defaulting to groq", LLM_PROVIDER)
+    LLM_PROVIDER = "groq"
+
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-if not GROQ_API_KEY:
-    logger.error("GROQ_API_KEY is not set")
-    raise RuntimeError("GROQ_API_KEY environment variable is required")
+CEREBRAS_API_KEY = os.getenv("CEREBRAS_API_KEY")
+CEREBRAS_DEFAULT_MODEL = "llama3.1-8b"
+CEREBRAS_DEFAULT_REPAIR_MODEL = "llama3.1-8b"
+
+
+def extract_message_text(content: Any) -> str:
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        parts = []
+        for item in content:
+            if isinstance(item, str):
+                parts.append(item)
+                continue
+            if isinstance(item, dict):
+                text = item.get("text")
+                if text:
+                    parts.append(str(text))
+        return "\n".join(part for part in parts if part).strip()
+    if content is None:
+        return ""
+    return str(content)
+
+
+def format_llm_exception(exc: Exception) -> str:
+    parts = [exc.__class__.__name__]
+    status_code = getattr(exc, "status_code", None)
+    response = getattr(exc, "response", None)
+    if status_code is None and response is not None:
+        status_code = getattr(response, "status_code", None)
+    if status_code is not None:
+        parts.append(f"status={status_code}")
+
+    body = getattr(exc, "body", None)
+    if body:
+        try:
+            parts.append(json.dumps(body))
+        except TypeError:
+            parts.append(str(body))
+    else:
+        text = str(exc).strip()
+        if text:
+            parts.append(text)
+    return " | ".join(part for part in parts if part)
+
+
+def is_quota_or_rate_limit_error(exc: Exception) -> bool:
+    status_code = getattr(exc, "status_code", None)
+    response = getattr(exc, "response", None)
+    if status_code is None and response is not None:
+        status_code = getattr(response, "status_code", None)
+    if status_code == 429:
+        return True
+
+    body = getattr(exc, "body", None)
+    candidate_text = [str(exc)]
+    if body is not None:
+        try:
+            candidate_text.append(json.dumps(body))
+        except TypeError:
+            candidate_text.append(str(body))
+    joined = " ".join(part for part in candidate_text if part).lower()
+    markers = (
+        "rate limit",
+        "quota",
+        "too many requests",
+        "resource exhausted",
+        "limit reached",
+        "limit exceeded",
+        "requests/day",
+        "tokens/day",
+        "daily limit",
+        "rate-limited",
+    )
+    return any(marker in joined for marker in markers)
+
+
+class LangChainProviderClient:
+    def __init__(self, name: str, client: Optional[Any]):
+        self.name = name
+        self.client = client
+
+    @property
+    def enabled(self) -> bool:
+        return self.client is not None
+
+    def invoke(self, prompt: str) -> Any:
+        if not self.client:
+            raise RuntimeError(f"{self.name} provider is not configured")
+        return self.client.invoke(prompt)
+
+
+class CerebrasFallbackClient:
+    name = "cerebras"
+
+    def __init__(self, api_key: Optional[str], model: str, max_tokens: int, timeout: int = 90):
+        self.api_key = api_key
+        self.model = model
+        self.max_tokens = max_tokens
+        self.timeout = timeout
+        self.url = "https://api.cerebras.ai/v1/chat/completions"
+
+    @property
+    def enabled(self) -> bool:
+        return bool(self.api_key)
+
+    def invoke(self, prompt: str) -> AIMessage:
+        if not self.api_key:
+            raise RuntimeError("CEREBRAS_API_KEY environment variable is required for failover")
+
+        last_error: Optional[Exception] = None
+        for attempt in range(3):
+            try:
+                response = httpx.post(
+                    self.url,
+                    headers={
+                        "Authorization": f"Bearer {self.api_key}",
+                        "Content-Type": "application/json",
+                        "Accept": "application/json",
+                        "User-Agent": "Nakshatra-AI/1.0",
+                    },
+                    json={
+                        "model": self.model,
+                        "messages": [{"role": "user", "content": prompt}],
+                        "max_completion_tokens": self.max_tokens,
+                    },
+                    timeout=self.timeout,
+                )
+            except httpx.HTTPError as exc:
+                last_error = RuntimeError(f"Cerebras API request failed: {exc}")
+                if attempt < 2:
+                    time.sleep(1.5 * (attempt + 1))
+                    continue
+                raise last_error from exc
+
+            if response.status_code == 429 and attempt < 2:
+                retry_after = response.headers.get("retry-after")
+                delay_seconds = 1.5 * (attempt + 1)
+                if retry_after:
+                    try:
+                        delay_seconds = max(delay_seconds, float(retry_after))
+                    except ValueError:
+                        pass
+                logger.warning(
+                    "Cerebras returned 429 for model=%s; retrying in %.1fs (attempt %s/3)",
+                    self.model,
+                    delay_seconds,
+                    attempt + 1,
+                )
+                time.sleep(delay_seconds)
+                continue
+
+            if response.is_error:
+                detail_text = response.text.strip()
+                try:
+                    detail = response.json()
+                except json.JSONDecodeError:
+                    detail = detail_text
+                raise RuntimeError(f"Cerebras API error ({response.status_code}): {detail}")
+
+            data = response.json()
+            choices = data.get("choices") or []
+            if not choices:
+                raise RuntimeError("Cerebras API returned no choices")
+
+            message = choices[0].get("message") or {}
+            content = extract_message_text(message.get("content")).strip()
+            if not content:
+                raise RuntimeError("Cerebras API returned an empty message")
+            return AIMessage(content=content)
+
+        if last_error:
+            raise last_error
+        raise RuntimeError("Cerebras API request failed after retries")
+
+
+def select_provider_order(
+    preferred_provider: str,
+    groq_provider: Optional[LangChainProviderClient],
+    cerebras_provider: Optional[CerebrasFallbackClient],
+) -> list[Any]:
+    ordered = []
+    if preferred_provider == "cerebras":
+        ordered = [cerebras_provider, groq_provider]
+    else:
+        ordered = [groq_provider, cerebras_provider]
+    return [provider for provider in ordered if provider and provider.enabled]
+
+
+def invoke_with_failover(providers: list[Any], prompt: str, *, context: str) -> AIMessage:
+    if not providers:
+        raise RuntimeError("No LLM providers are configured")
+
+    last_exc: Optional[Exception] = None
+    for index, provider in enumerate(providers):
+        try:
+            response = provider.invoke(prompt)
+            response_text = extract_message_text(getattr(response, "content", response)).strip()
+            if response_text:
+                level = logger.info if index == 0 else logger.warning
+                label = "primary" if index == 0 else "fallback"
+                level("LLM request for %s served by %s provider %s", context, label, provider.name)
+                if isinstance(response, AIMessage):
+                    return response
+                return AIMessage(content=response_text)
+
+            logger.warning("LLM provider %s returned empty content during %s", provider.name, context)
+        except Exception as exc:
+            last_exc = exc
+            if is_quota_or_rate_limit_error(exc):
+                logger.warning(
+                    "LLM provider %s hit quota/rate limit during %s. Details: %s",
+                    provider.name,
+                    context,
+                    format_llm_exception(exc),
+                )
+            else:
+                logger.warning(
+                    "LLM provider %s failed during %s. Details: %s",
+                    provider.name,
+                    context,
+                    format_llm_exception(exc),
+                )
+
+    if last_exc:
+        raise last_exc
+    raise RuntimeError(f"All LLM providers returned empty content during {context}")
+
+
+class SessionChatMemory:
+    def __init__(self) -> None:
+        self.messages: list[Any] = []
+
+    def add_message(self, message: Any) -> None:
+        self.messages.append(message)
+
+    def add_user_message(self, content: str) -> None:
+        self.messages.append(HumanMessage(content=content))
+
+    def add_ai_message(self, content: str) -> None:
+        self.messages.append(AIMessage(content=content))
+
+
+class SessionConversationState:
+    def __init__(self) -> None:
+        self.memory = type("MemoryContainer", (), {"chat_memory": SessionChatMemory()})()
 
 # ----- Shared LLM client -----
-llm = ChatGroq(
-    model="openai/gpt-oss-20B",
-    api_key=GROQ_API_KEY,
-    max_tokens=1400,
-    timeout=90,
-    max_retries=3,
+groq_llm = LangChainProviderClient(
+    "groq",
+    ChatGroq(
+        model="openai/gpt-oss-20B",
+        api_key=GROQ_API_KEY,
+        max_tokens=1400,
+        timeout=90,
+        max_retries=3,
+    ) if GROQ_API_KEY else None,
 )
 
-repair_llm = ChatGroq(
-    model="openai/gpt-oss-20B",
-    api_key=GROQ_API_KEY,
+groq_repair_llm = LangChainProviderClient(
+    "groq",
+    ChatGroq(
+        model="openai/gpt-oss-20B",
+        api_key=GROQ_API_KEY,
+        max_tokens=220,
+        timeout=90,
+        max_retries=2,
+    ) if GROQ_API_KEY else None,
+)
+
+cerebras_llm = CerebrasFallbackClient(
+    api_key=CEREBRAS_API_KEY,
+    model=os.getenv("CEREBRAS_MODEL", CEREBRAS_DEFAULT_MODEL),
+    max_tokens=1400,
+    timeout=90,
+)
+
+cerebras_repair_llm = CerebrasFallbackClient(
+    api_key=CEREBRAS_API_KEY,
+    model=os.getenv("CEREBRAS_REPAIR_MODEL", os.getenv("CEREBRAS_MODEL", CEREBRAS_DEFAULT_REPAIR_MODEL)),
     max_tokens=220,
     timeout=90,
-    max_retries=2,
 )
+
+llm_providers = select_provider_order(LLM_PROVIDER, groq_llm, cerebras_llm)
+repair_llm_providers = select_provider_order(LLM_PROVIDER, groq_repair_llm, cerebras_repair_llm)
+
+if not llm_providers or not repair_llm_providers:
+    logger.error("No usable LLM provider is configured")
+    raise RuntimeError("At least one LLM provider must be configured")
+
+logger.info("LLM provider order: %s", " -> ".join(provider.name for provider in llm_providers))
+logger.info("Repair LLM provider order: %s", " -> ".join(provider.name for provider in repair_llm_providers))
+if not groq_llm.enabled:
+    logger.info("Groq primary disabled; GROQ_API_KEY not configured")
+if cerebras_llm.enabled:
+    logger.info(
+        "Cerebras provider enabled with chat model=%s repair model=%s",
+        cerebras_llm.model,
+        cerebras_repair_llm.model,
+    )
+else:
+    logger.info("Cerebras provider disabled; CEREBRAS_API_KEY not configured")
 
 # ----- Per-session stores (thread-safe) -----
 _kundli_store: Dict[str, Dict[str, Any]] = {}
 _kundli_lock = Lock()
 
-_chain_store: Dict[str, ConversationChain] = {}
+_chain_store: Dict[str, SessionConversationState] = {}
 _chain_lock = Lock()
 
 _chart_summary_store: Dict[str, str] = {}
@@ -1744,14 +2032,16 @@ def complete_if_truncated(response_text: str) -> str:
             return completed
 
         try:
-            continuation = repair_llm.invoke(
+            continuation = invoke_with_failover(
+                repair_llm_providers,
                 (
                     "Continue the following astrology answer naturally from exactly where it stopped.\n"
                     "Do not restart, do not repeat earlier points, and do not add meta commentary.\n"
                     "If the text was cut in the middle of a word, start with only the missing remainder of that word.\n"
                     "Finish the incomplete sentence and, if needed, add one brief concluding sentence only.\n\n"
                     f"Partial answer:\n{completed}"
-                )
+                ),
+                context="truncated response completion",
             )
             continuation_text = getattr(continuation, "content", str(continuation)).strip()
             if not continuation_text:
@@ -3133,7 +3423,7 @@ async def get_or_restore_kundli(session_id: str) -> Optional[Dict[str, Any]]:
         build_detailed_chart_summary(kundli, {"full_name": (session_doc or {}).get("full_name")}),
     )
     return kundli
-def ensure_chart_summary_in_memory(chain: ConversationChain, chart_summary: str) -> None:
+def ensure_chart_summary_in_memory(chain: SessionConversationState, chart_summary: str) -> None:
     if not chart_summary:
         return
     for message in chain.memory.chat_memory.messages:
@@ -3143,7 +3433,7 @@ def ensure_chart_summary_in_memory(chain: ConversationChain, chart_summary: str)
 
 
 def build_inline_chart_prompt(
-    chain: ConversationChain,
+    chain: SessionConversationState,
     chart_summary: Optional[str],
     final_input: str,
 ) -> str:
@@ -3345,13 +3635,12 @@ def build_first_message_context(kundli: Dict[str, Any], profile: Optional[Dict[s
     }
 
 
-def create_chain_for_session(session_id: str) -> ConversationChain:
-    memory = ConversationBufferMemory(llm=llm, return_messages=True, max_token_limit=800)
-    chain = ConversationChain(llm=llm, memory=memory, verbose=False)
+def create_chain_for_session(session_id: str) -> SessionConversationState:
+    chain = SessionConversationState()
     logger.info("create_chain_for_session: created chain id=%s for session_id=%s", id(chain), session_id)
     return chain
 
-def get_or_create_chain(session_id: str) -> ConversationChain:
+def get_or_create_chain(session_id: str) -> SessionConversationState:
     with _chain_lock:
         logger.info("LOOKUP: session_id=%r keys=%s pid=%s", session_id, list(_chain_store.keys()), os.getpid())
         chain = _chain_store.get(session_id)
@@ -3459,7 +3748,7 @@ Date: {today.strftime('%Y-%m-%d')}
 
 
 
-def prune_memory_keep_last(chain: ConversationChain, keep_last_pairs: int = 1):
+def prune_memory_keep_last(chain: SessionConversationState, keep_last_pairs: int = 1):
     msgs = chain.memory.chat_memory.messages
     if msgs:
         system_msgs = [msg for msg in msgs if isinstance(msg, SystemMessage)]
@@ -3543,7 +3832,11 @@ async def kundli(request: Request):
             datetime.now(),
             plan_access=plan_access,
         )
-        llm_resp = llm.invoke(prompt)
+        llm_resp = invoke_with_failover(
+            llm_providers,
+            prompt,
+            context="kundli summary generation",
+        )
         summary_text = getattr(llm_resp, "content", str(llm_resp)).strip()
         summary_text = complete_if_truncated(summary_text)
     except Exception:
@@ -3799,14 +4092,22 @@ async def chat(request: Request):
     resp_text = ""
 
     try:
-        llm_resp = llm.invoke(prompt_payload)
+        llm_resp = invoke_with_failover(
+            llm_providers,
+            prompt_payload,
+            context="chat response generation",
+        )
         resp_text = getattr(llm_resp, "content", str(llm_resp)).strip()
     except Exception:
         logger.warning("Primary chat invoke failed for session %s", session_id, exc_info=True)
 
     if not resp_text:
         try:
-            retry_resp = llm.invoke(prompt_payload)
+            retry_resp = invoke_with_failover(
+                llm_providers,
+                prompt_payload,
+                context="chat retry generation",
+            )
             resp_text = getattr(retry_resp, "content", str(retry_resp)).strip()
         except Exception:
             logger.warning("Retry chat invoke failed for session %s", session_id, exc_info=True)
@@ -3820,7 +4121,11 @@ async def chat(request: Request):
             f"User Query: {user_query}"
         )
         try:
-            repair_resp = repair_llm.invoke(fallback_prompt)
+            repair_resp = invoke_with_failover(
+                repair_llm_providers,
+                fallback_prompt,
+                context="chat repair generation",
+            )
             resp_text = getattr(repair_resp, "content", str(repair_resp)).strip()
         except Exception:
             logger.warning("Repair chat invoke failed for session %s", session_id, exc_info=True)

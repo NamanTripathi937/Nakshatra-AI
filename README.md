@@ -28,6 +28,7 @@ Nakshatra AI is an intelligent Vedic astrology chatbot that provides personalize
 * 👥 Chat naturally with an AI astrologer for insights based on your astrological chart
 * 🚀 Deployable easily using platforms like Render or Vercel
 * ⏳ Frontend handles loading, API errors, and user feedback gracefully
+* 🔁 Automatically fails over from Groq to Cerebras when Groq quota/rate limits are hit
 
 ---
 
@@ -60,9 +61,15 @@ cd ..
 
 Create `.env` file in `backend/`:
 ```env
+LLM_PROVIDER=groq
 GROQ_API_KEY=your_groq_api_key_here
+CEREBRAS_API_KEY=your_cerebras_api_key_here
+CEREBRAS_MODEL=llama3.1-8b
+CEREBRAS_REPAIR_MODEL=llama3.1-8b
 MONGODB_URI=mongodb://localhost:27017/
 ```
+
+`LLM_PROVIDER` can be `groq` or `cerebras`. If `GROQ_API_KEY` is missing, the backend will automatically use Cerebras as primary when `CEREBRAS_API_KEY` is configured.
 
 Create `.env.local` file in `frontend/`:
 ```env

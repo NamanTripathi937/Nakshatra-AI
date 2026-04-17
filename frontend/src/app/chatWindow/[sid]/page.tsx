@@ -149,6 +149,17 @@ export default function ChatComponent() {
     return () => window.clearInterval(interval)
   }, [isWaitingForAI, loadSession, sid, token])
 
+  const scrollToBottom = () => {
+    const container = scrollAreaRef.current?.querySelector(
+      "[data-radix-scroll-area-viewport]"
+    )
+    if (container) container.scrollTop = container.scrollHeight
+  }
+
+  useEffect(() => {
+    scrollToBottom()
+  }, [messages])
+
   if (!sid) {
     return <div className="p-4 text-sm text-gray-400">No session id found.</div>;
   }
@@ -166,18 +177,6 @@ export default function ChatComponent() {
       </div>
     )
   }
-
-
-  const scrollToBottom = () => {
-    const container = scrollAreaRef.current?.querySelector(
-      "[data-radix-scroll-area-viewport]"
-    )
-    if (container) container.scrollTop = container.scrollHeight
-  }
-
-  useEffect(() => {
-    scrollToBottom()
-  }, [messages])
 
   const handleSendMessage = async () => {
     if (newMessage && token) {
