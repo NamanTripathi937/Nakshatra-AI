@@ -3035,6 +3035,15 @@ def style_chart_object(chart: Any, style: str) -> None:
         )
 
 
+def normalize_sign_for_jyotichart(sign_name: Optional[str]) -> Optional[str]:
+    if not sign_name:
+        return sign_name
+    # jyotichart expects a misspelled Sagittarius string internally.
+    if sign_name == "Sagittarius":
+        return "Saggitarius"
+    return sign_name
+
+
 def render_chart_svg(
     kundli: Dict[str, Any],
     chart_code: str,
@@ -3057,7 +3066,7 @@ def render_chart_svg(
     else:
         raise HTTPException(status_code=400, detail="Unsupported chart style")
 
-    chart_obj.set_ascendantsign(asc_sign)
+    chart_obj.set_ascendantsign(normalize_sign_for_jyotichart(asc_sign))
     style_chart_object(chart_obj, style)
     chart_details = build_chart_planet_details(kundli, chart_code)
 
