@@ -97,7 +97,7 @@ export default function RootLayout({
 
   return (
     <html lang="en">
-      <head>
+      <head suppressHydrationWarning>
         <link rel="canonical" href={BASE_URL} />
         {ADSENSE_CLIENT_ID ? (
           <script
@@ -106,11 +106,6 @@ export default function RootLayout({
             crossOrigin="anonymous"
           />
         ) : null}
-        <script
-          type="application/ld+json"
-          // eslint-disable-next-line react/no-danger
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
-        />
       </head>
 
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
@@ -133,12 +128,14 @@ export default function RootLayout({
           `}
         </Script>
 
-        {/* google site verification meta */}
-        <meta name="google-site-verification" content="mWLuq6bpiQgQOOg1-GIC5HUqRgzsY-kZTtNskIOeRmA" />
-
         <AppProviders>
           <AppShell>{children}</AppShell>
         </AppProviders>
+        <script
+          type="application/ld+json"
+          // eslint-disable-next-line react/no-danger
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
+        />
       </body>
     </html>
   );
