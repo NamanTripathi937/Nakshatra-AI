@@ -1295,7 +1295,7 @@ async def activate_paid_plan_for_user(
     return fulfillment
 
 
-async def increment_daily_question_usage(user_doc: Dict[str, Any]) -> Dict[str, Any]:
+async def ensure_daily_question_available(user_doc: Dict[str, Any]) -> Dict[str, Any]:
     user_doc = await refresh_user_account_state(user_doc)
     plan_access = build_plan_access(user_doc)
     if not plan_access["is_premium"] and plan_access["daily_questions_remaining"] <= 0:
@@ -1306,6 +1306,13 @@ async def increment_daily_question_usage(user_doc: Dict[str, Any]) -> Dict[str, 
                 "message": "You have reached your 5 free questions for today. Upgrade to Premium for unlimited questions.",
             },
         )
+
+    return user_doc
+
+
+async def increment_daily_question_usage(user_doc: Dict[str, Any]) -> Dict[str, Any]:
+    user_doc = await ensure_daily_question_available(user_doc)
+    plan_access = build_plan_access(user_doc)
 
     if plan_access["is_premium"]:
         return user_doc
@@ -1336,6 +1343,39 @@ async def increment_daily_question_usage(user_doc: Dict[str, Any]) -> Dict[str, 
         return user_doc
 
     return user_doc
+
+
+def build_no_credit_backend_failure_message(is_premium: bool) -> str:
+    if is_premium:
+        return (
+            "We hit a temporary backend issue while preparing your reading. "
+            "We know this was on our side. Please come back after some time."
+        )
+    return (
+        "We hit a temporary backend issue while preparing your reading, and we know this was our fault. "
+        "Your free credit was not used. Please come back after some time."
+    )
+
+
+async def save_assistant_message(
+    *,
+    user_id: str,
+    session_id: str,
+    message: str,
+) -> None:
+    try:
+        sessions_collection = get_sessions_collection()
+        assistant_message = Message(role="assistant", message=message)
+        await sessions_collection.update_one(
+            {"session_id": session_id, "user_id": user_id},
+            {
+                "$push": {"messages": assistant_message.dict()},
+                "$set": {"updated_at": datetime.now(timezone.utc)},
+            },
+        )
+        logger.info("Saved assistant message to MongoDB for session_id=%s", session_id)
+    except Exception as exc:
+        logger.exception("Failed to save assistant message to MongoDB (non-fatal): %s", exc)
 
 
 async def get_owned_session_doc(
@@ -4001,7 +4041,7 @@ async def chat(request: Request):
     - Uses a per-session ConversationChain to keep chats isolated
     """
     user_doc, session_id, _session_doc = await get_authenticated_session(request)
-    user_doc = await increment_daily_question_usage(user_doc)
+    user_doc = await ensure_daily_question_available(user_doc)
     plan_access = build_plan_access(user_doc)
 
     try:
@@ -4136,8 +4176,22 @@ async def chat(request: Request):
         except Exception:
             logger.warning("Truncation repair failed for session %s", session_id, exc_info=True)
     else:
-        logger.warning("Returning fallback chat response for session %s after empty model output", session_id)
-        resp_text = build_chat_retry_fallback_response(user_query, bool(kundli))
+        failure_message = build_no_credit_backend_failure_message(plan_access["is_premium"])
+        logger.warning("Returning no-credit backend failure response for session %s after model failure", session_id)
+        await save_assistant_message(
+            user_id=str(user_doc["_id"]),
+            session_id=session_id,
+            message=failure_message,
+        )
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "code": "temporary_backend_failure_no_credit_used",
+                "message": failure_message,
+            },
+        )
+
+    user_doc = await increment_daily_question_usage(user_doc)
 
     try:
         chain.memory.chat_memory.add_user_message(user_query)
@@ -4146,24 +4200,11 @@ async def chat(request: Request):
     except Exception:
         logger.warning("Failed to update in-memory chat history for session %s", session_id, exc_info=True)
     
-    # Save assistant response to MongoDB
-    try:
-        sessions_collection = get_sessions_collection()
-        assistant_message = Message(
-            role="assistant",
-            message=resp_text
-        )
-        
-        await sessions_collection.update_one(
-            {"session_id": session_id, "user_id": str(user_doc["_id"])},
-            {
-                "$push": {"messages": assistant_message.dict()},
-                "$set": {"updated_at": datetime.now(timezone.utc)}
-            }
-        )
-        logger.info("Saved assistant message to MongoDB for session_id=%s", session_id)
-    except Exception as e:
-        logger.exception("Failed to save assistant message to MongoDB (non-fatal): %s", e)
+    await save_assistant_message(
+        user_id=str(user_doc["_id"]),
+        session_id=session_id,
+        message=resp_text,
+    )
 
     return JSONResponse(content={"response": resp_text})
 
