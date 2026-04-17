@@ -52,6 +52,12 @@ function shouldInsertNativeAd(messageIndex: number, sender: Message["sender"], i
 
 function getFriendlyChatErrorMessage(error: unknown): string {
   const message = error instanceof Error ? error.message : ""
+  if (
+    message.toLowerCase().includes("free credit was not used") ||
+    message.toLowerCase().includes("temporary backend issue")
+  ) {
+    return message
+  }
   if (message.toLowerCase().includes("timeout")) {
     return "🔮 This reading is taking longer than usual. Please try again in a moment, and I’ll continue from where we left off."
   }
@@ -72,6 +78,8 @@ function isExpectedHandledChatError(error: unknown): boolean {
     message.includes("premium") ||
     message.includes("daily limit") ||
     message.includes("upgrade to premium") ||
+    message.includes("free credit was not used") ||
+    message.includes("temporary backend issue") ||
     message.includes("llm conversation failed") ||
     message.includes("server_error")
   )
