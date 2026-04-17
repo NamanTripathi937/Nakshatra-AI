@@ -90,10 +90,12 @@ function HistoryList({
   items,
   limit,
   onOpenSession,
+  openingSessionId,
 }: {
   items: SessionHistoryItem[]
   limit?: number
   onOpenSession: (sessionId: string) => void
+  openingSessionId?: string | null
 }) {
   const visibleItems = typeof limit === "number" ? items.slice(0, limit) : items
 
@@ -104,7 +106,12 @@ function HistoryList({
           key={item.session_id}
           type="button"
           onClick={() => onOpenSession(item.session_id)}
-          className="rounded-3xl border border-white/10 bg-slate-950/60 p-4 text-left transition-colors hover:border-cyan-400/25 hover:bg-slate-900/80"
+          disabled={openingSessionId === item.session_id}
+          className={`rounded-3xl border bg-slate-950/60 p-4 text-left transition-colors ${
+            openingSessionId === item.session_id
+              ? "border-cyan-400/35 bg-slate-900/90 opacity-95"
+              : "border-white/10 hover:border-cyan-400/25 hover:bg-slate-900/80"
+          }`}
         >
           <div className="flex items-start justify-between gap-3">
             <div>
@@ -130,6 +137,12 @@ function HistoryList({
               {item.plan_snapshot}
             </span>
           </div>
+          {openingSessionId === item.session_id ? (
+            <div className="mt-3 inline-flex items-center gap-2 rounded-full border border-cyan-400/20 bg-cyan-500/10 px-3 py-1 text-xs font-medium text-cyan-100">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              Opening reading...
+            </div>
+          ) : null}
           <p className="mt-3 text-sm leading-6 text-slate-300">
             {item.last_message_preview || "Open this reading to continue the conversation."}
           </p>
@@ -155,6 +168,7 @@ export default function AccountHistory({
   const [items, setItems] = React.useState<SessionHistoryItem[]>([])
   const [loading, setLoading] = React.useState(false)
   const [error, setError] = React.useState("")
+  const [openingSessionId, setOpeningSessionId] = React.useState<string | null>(null)
 
   React.useEffect(() => {
     if (!open || !token || !user) return
@@ -181,6 +195,9 @@ export default function AccountHistory({
         const data: SessionHistoryResponse = await res.json()
         if (!cancelled) {
           setItems(data.sessions || [])
+          for (const session of data.sessions || []) {
+            router.prefetch(`/chatWindow/${session.session_id}`)
+          }
         }
       } catch (err) {
         if (!cancelled) {
@@ -201,6 +218,7 @@ export default function AccountHistory({
 
   const handleOpenSession = React.useCallback(
     (sessionId: string) => {
+      setOpeningSessionId(sessionId)
       onClose?.()
       router.push(`/chatWindow/${sessionId}`)
     },
@@ -229,7 +247,12 @@ export default function AccountHistory({
       ) : items.length === 0 ? (
         <EmptyState onStartNew={variant === "modal" ? handleStartNew : undefined} />
       ) : (
-        <HistoryList items={items} limit={limit} onOpenSession={handleOpenSession} />
+        <HistoryList
+          items={items}
+          limit={limit}
+          onOpenSession={handleOpenSession}
+          openingSessionId={openingSessionId}
+        />
       )}
     </>
   )

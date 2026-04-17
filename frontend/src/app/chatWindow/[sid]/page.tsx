@@ -430,7 +430,7 @@ export default function ChatComponent() {
         <div className="max-w-4xl mx-auto">
           <Card className="m-2 rounded-2xl border border-slate-700/80 bg-slate-950/55 p-2.5 shadow-lg shadow-black/30 sm:p-4">
             <form
-              className="flex items-end gap-2 sm:gap-3"
+              className="flex items-center gap-2 sm:items-end sm:gap-3"
               onSubmit={(e) => {
                 e.preventDefault()
                 handleSendMessage()
@@ -450,7 +450,7 @@ export default function ChatComponent() {
               <Button
                 type="submit"
                 disabled={!inputMessage.trim() || isWaitingForAI}
-                className="h-11 w-11 shrink-0 rounded-xl bg-gradient-to-r from-slate-900 to-blue-800 px-0 text-white shadow-lg shadow-blue-950/30 hover:from-slate-800 hover:to-blue-700 sm:h-12 sm:w-auto sm:px-5"
+                className="h-11 w-11 shrink-0 self-center rounded-xl bg-gradient-to-r from-slate-900 to-blue-800 px-0 text-white shadow-lg shadow-blue-950/30 hover:from-slate-800 hover:to-blue-700 sm:h-12 sm:w-auto sm:self-auto sm:px-5"
               >
                 <Send className="h-4 w-4" />
                 <span className="ml-2 hidden sm:inline">Send</span>
