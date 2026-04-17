@@ -99,6 +99,13 @@ export default function RootLayout({
     <html lang="en">
       <head>
         <link rel="canonical" href={BASE_URL} />
+        {ADSENSE_CLIENT_ID ? (
+          <script
+            async
+            src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADSENSE_CLIENT_ID}`}
+            crossOrigin="anonymous"
+          />
+        ) : null}
         <script
           type="application/ld+json"
           // eslint-disable-next-line react/no-danger
@@ -116,14 +123,6 @@ export default function RootLayout({
           src="https://accounts.google.com/gsi/client"
           strategy="afterInteractive"
         />
-        {ADSENSE_CLIENT_ID ? (
-          <Script
-            id="adsense-script"
-            src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADSENSE_CLIENT_ID}`}
-            strategy="afterInteractive"
-            crossOrigin="anonymous"
-          />
-        ) : null}
         {/* Initialize gtag */}
         <Script id="gtag-init" strategy="afterInteractive">
           {`
