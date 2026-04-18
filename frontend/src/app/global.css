@@ -129,24 +129,24 @@
 
 :root {
   --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.922 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.556 0 0);
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
@@ -218,20 +218,24 @@ html, body, #__next {
   padding: 0;
 }
 
-/* blurred background image — extend beyond viewport to avoid clipped halo */
-body::before {
-  content: "";
+html,
+body {
+  background-color: #020617;
+}
+
+/* fixed wallpaper layer so the starry background stays consistent on mobile and desktop */
+.page-wallpaper {
   position: fixed;
-  /* extend beyond viewport so blur doesn't get clipped at the edge */
-  inset: -32px;
+  inset: 0;
   background-image: url('/stars.jpg') !important;
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
-  background-attachment: fixed;
-  z-index: -1;
+  z-index: 0;
   pointer-events: none;
-  filter: blur(0.5rem); /* keep or reduce */
+  opacity: 0.42;
+  transform: scale(1.02);
+  transform-origin: center;
 }
 
 
@@ -239,7 +243,7 @@ body::before {
 .mid-layer {
   position: fixed;
   inset: 0;                  /* fill the viewport */
-  z-index: 0;                /* sits above wallpaper (which is -1 / -2) but below content (z-10) */
+  z-index: 1;                /* sits above wallpaper but below content */
   pointer-events: none;      /* don't block clicks */
   display: block;
   margin-top: 0;  /* centered vertically with the form */

@@ -16,6 +16,9 @@ class SessionData(BaseModel):
     full_name: Optional[str] = None
     birth_details: Optional[Dict[str, Any]] = None  # year, month, date, hours, minutes, seconds, lat, lon, timezone
     messages: List[Message] = Field(default_factory=list)  # All chat messages for this session
+    message_count: int = 0
+    last_message_preview: str = ""
+    last_message_role: Optional[str] = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     

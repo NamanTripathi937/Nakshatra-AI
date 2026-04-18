@@ -1,13 +1,13 @@
 // app/sitemap.ts
 import { MetadataRoute } from "next";
+import { allSeoPaths } from "@/lib/seo-content";
+import { buildAbsoluteUrl } from "@/lib/site";
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  return [
-    {
-      url: "https://nakshatra-ai.vercel.app",
-      lastModified: new Date(),
-      changeFrequency: "weekly" as const,
-      priority: 1,
-    },
-  ];
+  return allSeoPaths.map((path) => ({
+    url: buildAbsoluteUrl(path),
+    lastModified: new Date(),
+    changeFrequency: path.startsWith("/guides/") ? ("monthly" as const) : ("weekly" as const),
+    priority: path === "/" ? 1 : path.startsWith("/guides/") ? 0.7 : 0.85,
+  }));
 }

@@ -2,15 +2,14 @@ import type { Metadata } from "next"
 
 import { Card } from "@/components/ui/card"
 import StaticPageLayout from "@/components/StaticPageLayout"
+import { buildPageMetadata } from "@/lib/site"
 
-export const metadata: Metadata = {
-  title: "Privacy",
+export const metadata: Metadata = buildPageMetadata({
+  title: "Privacy Policy",
   description:
-    "Privacy information for Nakshatra AI, including account data, birth details, chat usage, and third-party services.",
-  alternates: {
-    canonical: "/privacy",
-  },
-}
+    "Read how Nakshatra AI handles account data, birth details, saved kundli sessions, analytics, billing records, and third-party services.",
+  path: "/privacy",
+})
 
 export default function PrivacyPage() {
   return (

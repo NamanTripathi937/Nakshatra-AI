@@ -2,15 +2,14 @@ import type { Metadata } from "next"
 
 import { Card } from "@/components/ui/card"
 import StaticPageLayout from "@/components/StaticPageLayout"
+import { buildPageMetadata } from "@/lib/site"
 
-export const metadata: Metadata = {
-  title: "About",
+export const metadata: Metadata = buildPageMetadata({
+  title: "About Nakshatra AI",
   description:
-    "Learn what Nakshatra AI is, how it works, and what you can expect from the astrology experience.",
-  alternates: {
-    canonical: "/about",
-  },
-}
+    "Learn how Nakshatra AI approaches Vedic astrology, chart-aware readings, saved sessions, and practical kundli interpretation.",
+  path: "/about",
+})
 
 export default function AboutPage() {
   return (

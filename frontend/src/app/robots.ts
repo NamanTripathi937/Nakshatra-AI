@@ -1,5 +1,6 @@
 // app/robots.ts
 import { MetadataRoute } from "next";
+import { SITE_URL } from "@/lib/site";
 
 export default function robots(): MetadataRoute.Robots {
   return {
@@ -7,6 +8,6 @@ export default function robots(): MetadataRoute.Robots {
       userAgent: "*",
       allow: "/",
     },
-    sitemap: "https://nakshatra-ai.vercel.app/sitemap2.xml",
+    sitemap: `${SITE_URL}/sitemap.xml`,
   };
 }

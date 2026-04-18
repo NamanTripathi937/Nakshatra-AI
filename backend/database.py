@@ -1,6 +1,6 @@
 import os
 from motor.motor_asyncio import AsyncIOMotorClient
-from pymongo import MongoClient
+from pymongo import ASCENDING, DESCENDING, MongoClient
 from dotenv import load_dotenv
 import logging
 
@@ -27,6 +27,8 @@ async def connect_to_mongo():
         database = motor_client[DATABASE_NAME]
         # Test connection
         await motor_client.admin.command('ping')
+        await database["sessions"].create_index([("user_id", ASCENDING), ("updated_at", DESCENDING)])
+        await database["sessions"].create_index([("session_id", ASCENDING), ("user_id", ASCENDING)])
         logger.info(f"Successfully connected to MongoDB: {DATABASE_NAME}")
     except Exception as e:
         logger.error(f"Failed to connect to MongoDB: {e}")

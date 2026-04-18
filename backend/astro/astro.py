@@ -14,7 +14,6 @@ DAYS_PER_YEAR = 365.2425
 PLANETS = {
     "Sun": swe.SUN, "Moon": swe.MOON, "Mercury": swe.MERCURY, "Venus": swe.VENUS,
     "Mars": swe.MARS, "Jupiter": swe.JUPITER, "Saturn": swe.SATURN,
-    "Uranus": swe.URANUS, "Neptune": swe.NEPTUNE, "Pluto": swe.PLUTO,
     "MeanNode": swe.MEAN_NODE, "TrueNode": swe.TRUE_NODE,
 }
 
@@ -38,6 +37,7 @@ SIGN_LORDS = {
 
 CLASSICAL_PLANETS = ["Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn"]
 VEDIC_PLANETS = ["Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn", "Rahu", "Ketu"]
+SUPPORTED_CHART_PLANETS = set(CLASSICAL_PLANETS) | {"MeanNode", "TrueNode"}
 
 PLANETARY_ASPECTS = {
     "Sun": {7},
@@ -201,7 +201,7 @@ def build_divisional_chart(chart_code, asc_longitude, planets_out):
 
     planets = []
     for planet in planets_out:
-        if "error" in planet:
+        if "error" in planet or not should_include_chart_planet(planet.get("name")):
             continue
         divisional_lon = get_divisional_longitude(planet["longitude_deg"], division)
         sign_index, sign_name, degree_in_sign = zodiac_sign_from_longitude(divisional_lon)
@@ -333,6 +333,10 @@ def canonical_vedic_planet_name(planet_name):
     if planet_name in {"TrueNode", "MeanNode"}:
         return "Rahu"
     return planet_name
+
+
+def should_include_chart_planet(planet_name):
+    return planet_name in SUPPORTED_CHART_PLANETS
 
 
 def get_planetary_aspect_offsets(planet_name):
@@ -1172,6 +1176,8 @@ def generate_chart(birth, house_system='WS'):
 
     planets_out = []
     for pname,pcode in PLANETS.items():
+        if not should_include_chart_planet(pname):
+            continue
         try:
             xx,_ = swe.calc_ut(jd_ut_local, pcode, swe.FLG_SIDEREAL)
             lon_deg = normalize_angle(xx[0])

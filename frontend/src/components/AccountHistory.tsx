@@ -179,7 +179,12 @@ export default function AccountHistory({
       setLoading(true)
       setError("")
       try {
-        const res = await fetch(`${backendUrl}/sessions`, {
+        const historyUrl = new URL(`${backendUrl}/sessions`)
+        if (typeof limit === "number" && limit > 0) {
+          historyUrl.searchParams.set("limit", String(limit))
+        }
+
+        const res = await fetch(historyUrl.toString(), {
           headers: buildAuthHeaders(token),
         })
         if (!res.ok) {
@@ -214,7 +219,7 @@ export default function AccountHistory({
     return () => {
       cancelled = true
     }
-  }, [backendUrl, open, token, user])
+  }, [backendUrl, limit, open, token, user])
 
   const handleOpenSession = React.useCallback(
     (sessionId: string) => {

@@ -14,60 +14,139 @@ import { getBackendUrl } from "@/lib/utils"
 
 const conceptCards = [
   {
-    title: "5 free questions every day",
+    title: "Free kundli with follow-up chat",
     body:
-      "Every account gets five free queries daily before you ever need to upgrade. You can ask about your own chart or provide someone else's birth details when you are reading for family, friends, or loved ones.",
+      "Generate a free kundli, keep the chart tied to the session, and ask follow-up Vedic astrology questions without losing the underlying chart context.",
+  },
+  {
+    title: "Built around Vedic chart logic",
+    body:
+      "The reading flow is designed around Lagna, house lords, nakshatras, dasha timing, yogas, and divisional charts instead of generic sign-based astrology copy.",
   },
   {
     title: "Private by default",
     body:
       "Birth details, generated charts, and question history are deeply personal. Nakshatra AI is built so that this material stays attached to your account and visible only to you online.",
   },
-  {
-    title: "Meaning over exploitation",
-    body:
-      "Astrology should help people, not scare or overcharge them. The goal here is to deliver answers that feel worth the price, instead of vague content padded with fear, urgency, or gimmicks.",
-  },
 ]
 
 const featureCards = [
   {
-    title: "Ask about any chart",
+    title: "Generate your kundli",
     body:
-      "You are not limited to your own horoscope. If you have the birth details, you can generate a chart and explore questions for parents, partners, children, or anyone else you are studying sincerely.",
+      "Enter your birth details to create a Vedic chart and preserve the chart context for the rest of the reading session.",
   },
   {
-    title: "Context stays with the session",
+    title: "Ask targeted chart questions",
     body:
-      "A useful reading should not restart from zero after every message. The chart context stays attached to the session so follow-up questions remain grounded in the same kundli.",
+      "Ask about marriage, career, timing, family, finances, compatibility, or recurring life patterns without disconnecting the answer from the chart.",
   },
   {
-    title: "Upgrade only when it feels justified",
+    title: "Return to saved readings",
     body:
-      "The free tier is meant to be genuinely usable. Premium exists for people who want more depth, more continuity, and advanced tools such as divisional charts, remedies, and compatibility analysis.",
+      "A useful reading should not restart from zero after every visit. Recent chart sessions stay attached to your account so you can reopen them later.",
+  },
+]
+
+const sampleReadingCards = [
+  {
+    title: "Sample career question",
+    body:
+      "“Which career patterns repeat in my chart, and does the current dasha support a role change or a longer period of consolidation?”",
+  },
+  {
+    title: "Sample marriage question",
+    body:
+      "“What do the 7th house, Venus, and Navamsa suggest about relationship maturity, timing, and the kind of partner energy I tend to attract?”",
+  },
+  {
+    title: "Sample life-pattern question",
+    body:
+      "“Why do the same emotional or family patterns keep resurfacing, and which planets or houses deserve the most attention first?”",
+  },
+]
+
+const queryClusterLinks = [
+  {
+    href: "/free-kundli",
+    title: "Free Kundli Online",
+    body:
+      "Start with the primary chart-generation query and explain how the kundli plus saved reading flow works.",
+  },
+  {
+    href: "/ai-vedic-astrologer",
+    title: "AI Vedic Astrologer",
+    body:
+      "Show how the chart-aware chat layer differs from generic astrology bots and static reports.",
+  },
+  {
+    href: "/kundli-matching",
+    title: "Kundli Matching",
+    body:
+      "Cover compatibility queries with broader Vedic relationship context instead of only one score.",
+  },
+  {
+    href: "/navamsa-chart",
+    title: "Navamsa Chart",
+    body:
+      "Build authority around D9, marriage refinement, maturity, and divisional chart reading.",
+  },
+  {
+    href: "/vimshottari-dasha",
+    title: "Vimshottari Dasha",
+    body:
+      "Own timing-oriented queries around mahadasha, antardasha, and chart activation periods.",
+  },
+  {
+    href: "/mangal-dosh",
+    title: "Mangal Dosh",
+    body:
+      "Handle a high-intent marriage query carefully without reducing it to fear-based astrology marketing.",
+  },
+  {
+    href: "/daily-horoscope",
+    title: "Daily Horoscope",
+    body:
+      "Build daily guidance pages that connect chart context, transits, and timing instead of generic sign messages.",
+  },
+  {
+    href: "/panchang",
+    title: "Panchang",
+    body:
+      "Open a daily-timing content cluster around tithi, nakshatra, yoga, karana, and practical planning.",
   },
 ]
 
 const faqItems = [
   {
-    question: "What kind of questions is Nakshatra AI built for?",
+    question: "What makes Nakshatra AI more useful than a generic astrology chatbot?",
     answer:
-      "The site is built for chart-based questions on themes such as relationships, marriage, career, finances, life direction, strengths, recurring obstacles, timing patterns, and the deeper meaning of placements through Vedic astrology.",
+      "The reading flow is built around an actual generated kundli, so follow-up questions can stay grounded in Lagna, house lords, dasha timing, divisional charts, yogas, and other Vedic chart factors instead of drifting into sign-based filler.",
   },
   {
-    question: "Can I use it for charts other than my own?",
+    question: "What birth details do I need for a free kundli?",
     answer:
-      "Yes. The free and premium experience are not restricted to your own chart. If you have someone's birth details, you can generate their kundli and ask questions from that chart context too.",
+      "You need the full name, date of birth, time of birth, and place of birth. The more accurate the birth time is, the more reliable the Lagna, house placements, divisional charts, and timing analysis become.",
   },
   {
-    question: "How private is my chart data?",
+    question: "Can I use Nakshatra AI for someone else’s chart?",
     answer:
-      "Birth details, generated readings, and follow-up questions are intended to stay private inside your account. The platform is built around privacy because chart data often touches sensitive personal and family matters.",
+      "Yes. If you have someone else’s birth details, you can generate their kundli too and ask chart-aware questions from that reading. The free and premium flows are not restricted to your own chart only.",
   },
   {
-    question: "Is the platform still in an early phase?",
+    question: "Does the site focus on Vedic astrology specifically?",
     answer:
-      "Yes. Nakshatra AI is still in its initial phase, and the experience will continue to improve. If you notice bugs or rough edges, please report them. Thoughtful feedback from real seekers is a major part of how the platform gets better.",
+      "Yes. The product is positioned around Vedic astrology and chart-based Jyotish logic, including Lagna, nakshatras, Vimshottari dasha, divisional charts such as Navamsa, and compatibility-oriented chart reading.",
+  },
+  {
+    question: "How private are my kundli and chat sessions?",
+    answer:
+      "Birth details, generated readings, and follow-up questions are intended to stay private inside your account. The product treats saved chart history as sensitive information rather than casual public content.",
+  },
+  {
+    question: "Is this a replacement for a human astrologer or professional advice?",
+    answer:
+      "No. It is a chart-aware digital reading tool meant for guidance, reflection, and exploration. It should not be treated as legal, medical, or financial advice, and it does not replace critical judgment in life-changing decisions.",
   },
 ]
 
@@ -78,6 +157,7 @@ export default function KundaliPage() {
   const router = useRouter()
   const backendUrl = getBackendUrl()
   const { user, token, loading: authLoading, error: authError } = useAuth()
+  const hasActiveAccount = Boolean(user && token)
 
   useEffect(() => {
     fetch(`${backendUrl}/ping`).catch(() => {})
@@ -127,23 +207,23 @@ export default function KundaliPage() {
       />
 
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 sm:gap-8">
-        <section className="overflow-hidden rounded-[2rem] border border-cyan-400/18 bg-[radial-gradient(circle_at_top_left,_rgba(34,211,238,0.14),_rgba(8,15,30,0.94)_38%,_rgba(5,10,20,0.98)_100%)] p-6 text-white shadow-[0_24px_90px_rgba(6,11,24,0.45)] sm:p-8">
+        <section className="overflow-hidden rounded-[2rem] border border-white/8 bg-slate-950/72 p-6 text-white shadow-[0_24px_90px_rgba(6,11,24,0.45)] sm:p-8">
           <div className="inline-flex rounded-full border border-cyan-300/18 bg-cyan-400/8 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-cyan-100">
             Meaningful Vedic Astrology
           </div>
           <div className="mt-5 grid gap-6 lg:grid-cols-[1.1fr_0.9fr] lg:items-start">
             <div className="max-w-3xl">
               <h1 className="bg-gradient-to-r from-white via-cyan-100 to-amber-200 bg-clip-text text-4xl font-semibold leading-none tracking-tight text-transparent sm:text-5xl lg:text-[4rem]">
-                Nakshatra AI
+                Free Kundli & AI Vedic Astrology Reading
               </h1>
               <h2 className="mt-3 max-w-2xl text-lg font-medium leading-relaxed text-cyan-100 sm:text-xl lg:text-[1.45rem]">
-                For the seekers who still believe there is meaning in the sky, timing in the chart, and light in the questions they carry.
+                Generate a chart-aware kundli, ask grounded Vedic astrology questions, and keep your reading session saved for later follow-up.
               </h2>
               <p className="mt-4 text-sm leading-7 text-slate-200 sm:text-base">
-                I created Nakshatra AI because too many astrology platforms charge a lot of money for shallow, generic, or fear-driven content. This project is built around a simpler principle: if someone comes with a real question, the answer should be thoughtful, grounded in the chart, respectful of their privacy, and genuinely worth the price.
+                Nakshatra AI is built for people searching for a free kundli online but wanting more than a static chart image. The goal is to combine Vedic chart generation with chart-aware AI reading so questions about marriage, career, timing, family, finances, and recurring life patterns stay attached to the same kundli context.
               </p>
               <p className="mt-4 text-sm leading-7 text-slate-300 sm:text-[15px]">
-                Vedic astrology can illuminate timing, temperament, relationships, career direction, recurring life patterns, and deeper questions of purpose, but only when it is handled with discipline and honesty. Nakshatra AI is meant to bring that seriousness into a conversational product without turning sacred knowledge into a manipulative sales funnel.
+                The reading flow is designed around Vedic astrology concepts such as Lagna, house lords, nakshatras, Vimshottari dasha, yogas, and divisional charts like Navamsa. That is the difference between a chart-based reading and the kind of generic astrology output that sounds spiritual but is not actually tied to your birth chart.
               </p>
               <div className="mt-6 flex flex-wrap gap-3 text-sm">
                 <a
@@ -152,6 +232,12 @@ export default function KundaliPage() {
                 >
                   Start your free reading
                 </a>
+                <Link
+                  href="/free-kundli"
+                  className="rounded-full border border-cyan-300/16 bg-cyan-400/10 px-4 py-2 text-cyan-100 transition-colors hover:bg-cyan-400/18"
+                >
+                  Explore free kundli
+                </Link>
                 <Link
                   href="/contact"
                   className="rounded-full border border-white/12 bg-white/8 px-4 py-2 text-slate-100 transition-colors hover:bg-white/14"
@@ -169,17 +255,17 @@ export default function KundaliPage() {
 
             <Card className="rounded-[1.8rem] border border-white/10 bg-slate-950/58 p-5 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
               <div className="text-sm font-semibold uppercase tracking-[0.16em] text-cyan-100">
-                What makes this different
+                What this free kundli flow includes
               </div>
               <div className="mt-4 space-y-4 text-sm leading-6 text-slate-300">
                 <p>
-                  Every user gets five free queries each day, and those queries are not limited to just one chart. If you have the right birth details, you can explore your own horoscope or ask about someone else's chart with the same seriousness.
+                  Every account gets five free questions each day, and those questions stay attached to the generated kundli instead of floating separately from the chart context.
                 </p>
                 <p>
-                  The product is designed to answer curious, personal, and meaningful questions through Vedic astrology and related chart sciences, not by producing vague motivational filler.
+                  You can generate your own chart or someone else&apos;s chart if you have the birth details and want to explore marriage, career, family, timing, and compatibility questions sincerely.
                 </p>
                 <p>
-                  Privacy matters here. Your chart data, your questions, and your session history are intended to remain visible only to you inside your own account.
+                  Recent readings stay saved to the account so you can reopen sessions and continue the same line of questioning without losing the underlying kundli.
                 </p>
               </div>
             </Card>
@@ -200,7 +286,7 @@ export default function KundaliPage() {
               </p>
             </Card>
 
-            {user ? (
+            {hasActiveAccount ? (
               <AccountHistory backendUrl={backendUrl} variant="embedded" limit={3} />
             ) : (
               <Card className="rounded-3xl border border-white/10 bg-slate-950/58 p-4 text-white">
@@ -215,11 +301,21 @@ export default function KundaliPage() {
           <section className="space-y-4">
             <div className="flex justify-center">
               <div className="w-full max-w-[440px]">
-                {authLoading ? (
+                {hasActiveAccount ? (
+                  <div className="space-y-3">
+                    {authLoading ? (
+                      <Card className="rounded-[1.75rem] border border-cyan-400/15 bg-slate-950/62 p-4 text-sm text-slate-300 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] backdrop-blur-md">
+                        Restoring your account in the background. You can start entering kundli details now.
+                      </Card>
+                    ) : null}
+                    <KundaliForm onSubmit={handleFormSubmit} loading={loading} />
+                    {authError ? <p className="text-sm text-rose-300">{authError}</p> : null}
+                  </div>
+                ) : authLoading ? (
                   <Card className="rounded-[1.75rem] border border-cyan-400/15 bg-slate-950/62 p-5 text-sm text-slate-300 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] backdrop-blur-md sm:p-6">
                     Restoring your account…
                   </Card>
-                ) : !user ? (
+                ) : (
                   <Card
                     id="auth-panel"
                     className="rounded-[1.8rem] border border-cyan-400/15 bg-slate-950/62 p-5 text-center text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] backdrop-blur-md sm:p-5"
@@ -241,8 +337,6 @@ export default function KundaliPage() {
                     </div>
                     {authError ? <p className="mt-4 text-sm text-rose-300">{authError}</p> : null}
                   </Card>
-                ) : (
-                  <KundaliForm onSubmit={handleFormSubmit} loading={loading} />
                 )}
               </div>
             </div>
@@ -264,10 +358,10 @@ export default function KundaliPage() {
                 Reading Access
               </div>
               <h2 className="text-[1.9rem] font-semibold leading-tight text-white sm:text-[2.2rem]">
-                Choose your path and only upgrade when the value feels real.
+                Start with a free kundli, then upgrade only if the depth feels worth it.
               </h2>
               <p className="text-sm leading-6 text-slate-300 sm:text-[15px]">
-                Free accounts are meant to be genuinely useful, not a teaser that gives you nothing. Premium exists for seekers who want deeper interpretation, more continuity, and advanced Vedic astrology tools at a price that respects their trust.
+                The free layer is meant to be genuinely useful for seekers who want a kundli, a few chart-aware questions, and saved session history. Premium exists for people who want deeper Vedic astrology interpretation, more continuity, and access to additional chart tools.
               </p>
             </div>
 
@@ -297,28 +391,28 @@ export default function KundaliPage() {
         <section className="grid gap-4 lg:grid-cols-[1.05fr_0.95fr]">
           <Card className="rounded-[1.8rem] border border-white/10 bg-slate-950/72 p-6 text-white sm:p-7">
             <div className="text-sm font-semibold uppercase tracking-[0.18em] text-cyan-100">
-              Our philosophy
+              How Nakshatra AI reads a chart
             </div>
             <h2 className="mt-3 text-2xl font-semibold leading-tight">
-              Astrology should guide people, not exploit them.
+              The kundli comes first, and the conversation stays loyal to that chart.
             </h2>
             <p className="mt-4 text-sm leading-7 text-slate-300 sm:text-[15px]">
-              The first rule of astrology, at least as I understand it, is that this knowledge should serve society and improve the future, not prey on uncertainty. People come to astrology when they are vulnerable, curious, confused, or hopeful. That makes integrity more important, not less.
+              A useful Vedic astrology answer usually depends on more than one placement. Marriage, career, health, family, finances, and life direction often require the Lagna, house lords, yogas, planetary dignity, divisional charts, and dasha timing to be read together rather than cherry-picked one by one.
             </p>
             <p className="mt-4 text-sm leading-7 text-slate-300 sm:text-[15px]">
-              Nakshatra AI is my attempt to build an astrology product that keeps that ethic intact: meaningful answers, useful access, fair pricing, and a refusal to turn every question into a fear-based upsell.
+              That is why the product is built around chart context first and chat second. The aim is to make the AI answer feel more like a chart-based interpretation and less like a keyword-matching horoscope generator.
             </p>
           </Card>
 
           <Card className="rounded-[1.8rem] border border-cyan-400/14 bg-slate-950/72 p-6 text-white sm:p-7">
             <div className="text-sm font-semibold uppercase tracking-[0.18em] text-cyan-100">
-              What a valuable reading requires
+              Why the project exists
             </div>
             <p className="mt-4 text-sm leading-7 text-slate-300 sm:text-[15px]">
-              A worthwhile Vedic astrology answer cannot come from one placement taken in isolation. Questions around marriage, career, health, family, finances, and life direction usually depend on the Lagna, house lords, planetary dignity, yogas, divisional charts, and dasha timing working together.
+              Too many astrology products monetize confusion with vague language, shallow reports, or fear-driven upsells. Nakshatra AI is meant to push in the opposite direction: clearer reasoning, fairer access, and answers that at least try to remain faithful to the underlying Vedic chart.
             </p>
             <p className="mt-4 text-sm leading-7 text-slate-300 sm:text-[15px]">
-              That is why the product is built around chart context first and chat second. The conversation is useful only when it stays loyal to the mathematical and interpretive reality of the kundli underneath it.
+              The product is still early, but the long-term direction is simple: become a genuinely useful place for free kundli generation, chart-based AI readings, compatibility analysis, divisional chart exploration, and Vedic timing guidance.
             </p>
           </Card>
         </section>
@@ -341,7 +435,7 @@ export default function KundaliPage() {
               How the reading flow works
             </div>
             <h2 className="mt-3 text-2xl font-semibold leading-tight">
-              Built for curious seekers who want a living conversation, not a one-time chart dump.
+              Built for people who want a living chart conversation, not a one-time chart dump.
             </h2>
           </div>
           <div className="mt-6 grid gap-4 md:grid-cols-3">
@@ -353,6 +447,28 @@ export default function KundaliPage() {
                 <h3 className="text-base font-semibold">{card.title}</h3>
                 <p className="mt-3 text-sm leading-6 text-slate-300">{card.body}</p>
               </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="rounded-[2rem] border border-white/10 bg-slate-950/72 p-6 text-white sm:p-7">
+          <div className="max-w-3xl">
+            <div className="text-sm font-semibold uppercase tracking-[0.18em] text-cyan-100">
+              Sample Reading Prompts
+            </div>
+            <h2 className="mt-3 text-2xl font-semibold leading-tight">
+              These are the kinds of questions the chart-aware flow is built to handle.
+            </h2>
+          </div>
+          <div className="mt-6 grid gap-4 md:grid-cols-3">
+            {sampleReadingCards.map((card) => (
+              <Card
+                key={card.title}
+                className="rounded-[1.5rem] border border-white/10 bg-white/4 p-5 text-white"
+              >
+                <h3 className="text-base font-semibold">{card.title}</h3>
+                <p className="mt-3 text-sm leading-6 text-slate-300">{card.body}</p>
+              </Card>
             ))}
           </div>
         </section>
@@ -415,10 +531,33 @@ export default function KundaliPage() {
         <section className="rounded-[2rem] border border-white/10 bg-slate-950/72 p-6 text-white sm:p-7">
           <div className="max-w-3xl">
             <div className="text-sm font-semibold uppercase tracking-[0.18em] text-cyan-100">
+              Explore By Search Intent
+            </div>
+            <h2 className="mt-3 text-2xl font-semibold leading-tight">
+              Dedicated pages for the Vedic astrology topics people actually search for.
+            </h2>
+          </div>
+          <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {queryClusterLinks.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className="rounded-[1.5rem] border border-white/10 bg-white/4 p-5 text-white transition-colors hover:border-cyan-300/25 hover:bg-white/8"
+              >
+                <h3 className="text-lg font-semibold">{item.title}</h3>
+                <p className="mt-3 text-sm leading-6 text-slate-300">{item.body}</p>
+              </Link>
+            ))}
+          </div>
+        </section>
+
+        <section className="rounded-[2rem] border border-white/10 bg-slate-950/72 p-6 text-white sm:p-7">
+          <div className="max-w-3xl">
+            <div className="text-sm font-semibold uppercase tracking-[0.18em] text-cyan-100">
               Frequently asked questions
             </div>
             <h2 className="mt-3 text-2xl font-semibold leading-tight">
-              Questions visitors often have before they begin
+              Questions people search before they generate a kundli
             </h2>
           </div>
           <div className="mt-6 grid gap-4 lg:grid-cols-2">
