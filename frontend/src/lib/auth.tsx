@@ -119,7 +119,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const refreshUser = React.useCallback(async () => {
-    const activeToken = token || readLocalStorageValue(AUTH_TOKEN_KEY)
+    const activeToken = readLocalStorageValue(AUTH_TOKEN_KEY)
     if (!activeToken) {
       setLoading(false)
       return
@@ -146,7 +146,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setLoading(false)
     }
-  }, [backendUrl, signOut, token])
+  }, [backendUrl, signOut])
 
   const signInWithGoogleCredential = React.useCallback(
     async (credential: string) => {
@@ -185,12 +185,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (cachedToken) {
       setToken(cachedToken)
     }
-    if (cachedUser) {
+    if (cachedToken && cachedUser) {
       try {
         setUser(JSON.parse(cachedUser))
       } catch {
         removeLocalStorageValue(AUTH_USER_KEY)
       }
+    } else if (!cachedToken && cachedUser) {
+      removeLocalStorageValue(AUTH_USER_KEY)
     }
     void refreshUser()
   }, [refreshUser])

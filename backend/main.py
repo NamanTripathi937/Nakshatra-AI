@@ -720,6 +720,7 @@ async def get_session(request: Request, session_id: str):
 async def list_sessions(request: Request):
     user_doc = await get_current_user(request)
     user_doc = await refresh_user_account_state(user_doc)
+    session_limit = parse_session_history_limit(request.query_params.get("limit"))
 
     cursor = (
         get_sessions_collection()
@@ -729,16 +730,18 @@ async def list_sessions(request: Request):
                 "session_id": 1,
                 "full_name": 1,
                 "birth_details": 1,
-                "messages": 1,
+                "message_count": 1,
+                "last_message_preview": 1,
+                "last_message_role": 1,
                 "created_at": 1,
                 "updated_at": 1,
                 "plan_snapshot": 1,
             },
         )
         .sort("updated_at", -1)
-        .limit(24)
+        .limit(session_limit)
     )
-    session_docs = await cursor.to_list(length=24)
+    session_docs = await cursor.to_list(length=session_limit)
     return JSONResponse(
         content={
             "sessions": [build_session_history_item(session_doc) for session_doc in session_docs],
@@ -1370,7 +1373,12 @@ async def save_assistant_message(
             {"session_id": session_id, "user_id": user_id},
             {
                 "$push": {"messages": assistant_message.dict()},
-                "$set": {"updated_at": datetime.now(timezone.utc)},
+                "$inc": {"message_count": 1},
+                "$set": {
+                    "last_message_preview": truncate_preview(message),
+                    "last_message_role": "assistant",
+                    "updated_at": datetime.now(timezone.utc),
+                },
             },
         )
         logger.info("Saved assistant message to MongoDB for session_id=%s", session_id)
@@ -1447,6 +1455,18 @@ def build_session_history_item(session_doc: Dict[str, Any]) -> Dict[str, Any]:
     birth_details = session_doc.get("birth_details") or {}
     created_at = session_doc.get("created_at")
     updated_at = session_doc.get("updated_at")
+    message_count = session_doc.get("message_count")
+    if not isinstance(message_count, int):
+        message_count = len(messages)
+
+    last_message_preview = session_doc.get("last_message_preview")
+    if not isinstance(last_message_preview, str):
+        last_message_preview = truncate_preview(last_message.get("message"))
+
+    last_message_role = session_doc.get("last_message_role")
+    if not last_message_role:
+        last_message_role = last_message.get("role")
+
     return {
         "session_id": session_doc.get("session_id"),
         "full_name": session_doc.get("full_name") or "Untitled Reading",
@@ -1460,13 +1480,21 @@ def build_session_history_item(session_doc: Dict[str, Any]) -> Dict[str, Any]:
             if birth_details
             else None
         ),
-        "message_count": len(messages),
-        "last_message_preview": truncate_preview(last_message.get("message")),
-        "last_message_role": last_message.get("role"),
+        "message_count": message_count,
+        "last_message_preview": last_message_preview,
+        "last_message_role": last_message_role,
         "created_at": serialize_datetime_value(created_at),
         "updated_at": serialize_datetime_value(updated_at),
         "plan_snapshot": normalize_plan(session_doc.get("plan_snapshot")),
     }
+
+
+def parse_session_history_limit(raw_limit: Optional[str], *, default: int = 24, maximum: int = 24) -> int:
+    try:
+        parsed = int(raw_limit or default)
+    except (TypeError, ValueError):
+        return default
+    return max(1, min(parsed, maximum))
 
 
 def format_birth_confirmation(payload: Dict[str, Any]) -> str:
@@ -3845,6 +3873,9 @@ async def kundli(request: Request):
                 "birth_details": payload,
                 "plan_snapshot": build_plan_access(user_doc)["plan"],
                 "messages": [confirmation_message.dict()],
+                "message_count": 1,
+                "last_message_preview": truncate_preview(confirmation_message.message),
+                "last_message_role": confirmation_message.role,
                 "updated_at": datetime.now(timezone.utc),
             }}
         )
@@ -3893,7 +3924,12 @@ async def kundli(request: Request):
                         message=summary_text or "Kundli generated successfully.",
                     ).dict()
                 },
-                "$set": {"updated_at": datetime.now(timezone.utc)},
+                "$inc": {"message_count": 1},
+                "$set": {
+                    "last_message_preview": truncate_preview(summary_text or "Kundli generated successfully."),
+                    "last_message_role": "assistant",
+                    "updated_at": datetime.now(timezone.utc),
+                },
             },
         )
     except Exception as e:
@@ -4072,7 +4108,12 @@ async def chat(request: Request):
             {"session_id": session_id, "user_id": str(user_doc["_id"])},
             {
                 "$push": {"messages": user_message.dict()},
-                "$set": {"updated_at": datetime.now(timezone.utc)},
+                "$inc": {"message_count": 1},
+                "$set": {
+                    "last_message_preview": truncate_preview(user_query),
+                    "last_message_role": "user",
+                    "updated_at": datetime.now(timezone.utc),
+                },
             },
         )
         logger.info("Saved user message to MongoDB for session_id=%s", session_id)

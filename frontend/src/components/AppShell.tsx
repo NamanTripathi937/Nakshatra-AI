@@ -35,7 +35,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   if (isChatRoute) {
     return (
-      <div className="relative flex h-screen flex-col overflow-hidden">
+      <div className="relative isolate flex h-screen flex-col overflow-hidden">
+        <div className="page-wallpaper" aria-hidden="true" />
         <div className="mid-layer absolute inset-0 h-screen overflow-hidden select-none" aria-hidden="true" />
         <Header />
         <div className="relative z-10 flex flex-1 flex-col overflow-hidden">
@@ -47,7 +48,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="relative min-h-screen">
+    <div className="relative isolate min-h-screen">
+      <div className="page-wallpaper" aria-hidden="true" />
       <div className="mid-layer pointer-events-none fixed inset-0 select-none" aria-hidden="true" />
       <div className="relative z-10 flex min-h-screen flex-col">
         <Header />

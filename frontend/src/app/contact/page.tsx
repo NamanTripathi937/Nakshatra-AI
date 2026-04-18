@@ -2,15 +2,14 @@ import type { Metadata } from "next"
 
 import { Card } from "@/components/ui/card"
 import StaticPageLayout from "@/components/StaticPageLayout"
+import { buildPageMetadata } from "@/lib/site"
 
-export const metadata: Metadata = {
-  title: "Contact",
+export const metadata: Metadata = buildPageMetadata({
+  title: "Contact Nakshatra AI",
   description:
-    "Contact and support information for Nakshatra AI, including project feedback and issue reporting.",
-  alternates: {
-    canonical: "/contact",
-  },
-}
+    "Contact Nakshatra AI for support, account issues, billing problems, feature feedback, and chart-reading bug reports.",
+  path: "/contact",
+})
 
 export default function ContactPage() {
   return (

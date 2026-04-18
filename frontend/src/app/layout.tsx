@@ -1,11 +1,10 @@
 // app/layout.tsx
-
-
 import type { Metadata } from "next";
 import AppProviders from "../components/AppProviders";
 import AppShell from "../components/AppShell";
 import Script from "next/script";
 import { Geist, Geist_Mono } from "next/font/google";
+import { DEFAULT_OG_IMAGE, SITE_NAME, SITE_URL } from "@/lib/site";
 // @ts-ignore - side-effect CSS import has no type declarations
 import "./global.css";
 
@@ -19,57 +18,67 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-const BASE_URL = "https://nakshatra-ai.vercel.app";
 const ADSENSE_CLIENT_ID = process.env.NEXT_PUBLIC_ADSENSE_CLIENT_ID
+const BING_SITE_VERIFICATION = process.env.NEXT_PUBLIC_BING_SITE_VERIFICATION
+const GOOGLE_SITE_VERIFICATION =
+  process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION ||
+  "mWLuq6bpiQgQOOg1-GIC5HUqRgzsY-kZTtNskIOeRmA"
 
 export const metadata: Metadata = {
-  metadataBase: new URL(BASE_URL),
+  metadataBase: new URL(SITE_URL),
   title: {
-    default: "Nakshatra AI",
+    default: SITE_NAME,
     template: "%s | Nakshatra AI",
   },
-  description: "Nakshatra AI — An AI project by Naman Tripathi. Explore AI tools and demos built with Next.js on Vercel.",
+  description:
+    "Free kundli, AI Vedic astrology readings, Navamsa insights, Vimshottari dasha timing, kundli matching, and chart-based guidance rooted in classical Jyotish logic.",
   keywords: [
     "nakshatra ai",
-    "nakshtra-ai",
-    "nakshatra by naman",
-    "nakshatra-ai.vercel.app",
-    "Naman Tripathi",
-    "nakshatra",
-    "naman astrology"
+    "free kundli",
+    "vedic astrology",
+    "ai vedic astrologer",
+    "kundli matching",
+    "navamsa chart",
+    "vimshottari dasha",
+    "panchang",
+    "mangal dosh",
   ],
-  authors: [{ name: "Naman Tripathi", url: BASE_URL }],
+  authors: [{ name: "Naman Tripathi", url: SITE_URL }],
   creator: "Naman Tripathi",
+  publisher: SITE_NAME,
   robots: {
     index: true,
     follow: true,
   },
   verification: {
-    google: "mWLuq6bpiQgQOOg1-GIC5HUqRgzsY-kZTtNskIOeRmA",
-  },
-  alternates: {
-    canonical: "/",
+    google: GOOGLE_SITE_VERIFICATION,
   },
   icons: {
     icon: "/favicon.png",
-    apple: "/apple-touch-icon.png",
   },
   openGraph: {
-    title: "Nakshatra AI — Naman",
+    title: `${SITE_NAME} — Free Kundli & AI Vedic Astrology Reading`,
     description:
-      "Nakshatra AI — An AI project by Naman Tripathi. Explore AI tools and demos built with Next.js on Vercel.",
-    url: BASE_URL,
-    siteName: "Nakshatra AI",
+      "Generate a free kundli, ask chart-aware Vedic astrology questions, and explore Navamsa, dasha timing, and compatibility guidance from one saved reading flow.",
+    url: SITE_URL,
+    siteName: SITE_NAME,
     locale: "en_US",
     type: "website",
-    // intentionally omitting images (no og.png)
+    images: [
+      {
+        url: DEFAULT_OG_IMAGE,
+        width: 1200,
+        height: 630,
+        alt: `${SITE_NAME} open graph image`,
+      },
+    ],
   },
   twitter: {
-    card: "summary",
-    title: "Nakshatra AI — Naman",
+    card: "summary_large_image",
+    title: `${SITE_NAME} — Free Kundli & AI Vedic Astrology Reading`,
     description:
-      "Nakshatra AI — An AI project by Naman Tripathi. Explore AI tools and demos built with Next.js on Vercel.",
-    // intentionally omitting images
+      "Generate a free kundli, ask chart-aware Vedic astrology questions, and explore Navamsa, dasha timing, and compatibility guidance.",
+    images: [DEFAULT_OG_IMAGE],
   },
 };
 
@@ -78,33 +87,39 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const structuredData = {
-    "@context": "https://schema.org",
-    "@type": "WebSite",
-    url: BASE_URL,
-    name: "Nakshatra AI",
-    author: {
-      "@type": "Person",
-      name: "Naman Tripathi",
-      url: BASE_URL,
+  const structuredData = [
+    {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      url: SITE_URL,
+      name: SITE_NAME,
+      description:
+        "Free kundli generation and chart-aware AI Vedic astrology readings focused on Lagna, Navamsa, dashas, remedies, and compatibility.",
     },
-    potentialAction: {
-      "@type": "SearchAction",
-      target: `${BASE_URL}/?s={search_term_string}`,
-      "query-input": "required name=search_term_string",
+    {
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      name: SITE_NAME,
+      url: SITE_URL,
+      founder: {
+        "@type": "Person",
+        name: "Naman Tripathi",
+      },
     },
-  };
+  ];
 
   return (
     <html lang="en">
       <head suppressHydrationWarning>
-        <link rel="canonical" href={BASE_URL} />
         {ADSENSE_CLIENT_ID ? (
           <script
             async
             src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADSENSE_CLIENT_ID}`}
             crossOrigin="anonymous"
           />
+        ) : null}
+        {BING_SITE_VERIFICATION ? (
+          <meta name="msvalidate.01" content={BING_SITE_VERIFICATION} />
         ) : null}
       </head>
 
