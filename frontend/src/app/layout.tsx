@@ -31,10 +31,11 @@ export const metadata: Metadata = {
     template: "%s | Nakshatra AI",
   },
   description:
-    "Free kundli, AI Vedic astrology readings, Navamsa insights, Vimshottari dasha timing, kundli matching, and chart-based guidance rooted in classical Jyotish logic.",
+    "Free kundli, numerology, AI Vedic astrology readings, Navamsa insights, Vimshottari dasha timing, kundli matching, and chart-based guidance rooted in classical Jyotish logic.",
   keywords: [
     "nakshatra ai",
     "free kundli",
+    "numerology calculator",
     "vedic astrology",
     "ai vedic astrologer",
     "kundli matching",
@@ -59,7 +60,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: `${SITE_NAME} — Free Kundli & AI Vedic Astrology Reading`,
     description:
-      "Generate a free kundli, ask chart-aware Vedic astrology questions, and explore Navamsa, dasha timing, and compatibility guidance from one saved reading flow.",
+      "Generate a free kundli, calculate numerology, ask chart-aware Vedic astrology questions, and explore Navamsa, dasha timing, and compatibility guidance from one saved reading flow.",
     url: SITE_URL,
     siteName: SITE_NAME,
     locale: "en_US",
@@ -77,7 +78,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: `${SITE_NAME} — Free Kundli & AI Vedic Astrology Reading`,
     description:
-      "Generate a free kundli, ask chart-aware Vedic astrology questions, and explore Navamsa, dasha timing, and compatibility guidance.",
+      "Generate a free kundli, calculate numerology, ask chart-aware Vedic astrology questions, and explore Navamsa, dasha timing, and compatibility guidance.",
     images: [DEFAULT_OG_IMAGE],
   },
 };
@@ -94,7 +95,7 @@ export default function RootLayout({
       url: SITE_URL,
       name: SITE_NAME,
       description:
-        "Free kundli generation and chart-aware AI Vedic astrology readings focused on Lagna, Navamsa, dashas, remedies, and compatibility.",
+        "Free kundli generation, numerology, and chart-aware AI Vedic astrology readings focused on Lagna, Navamsa, dashas, remedies, and compatibility.",
     },
     {
       "@context": "https://schema.org",

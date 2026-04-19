@@ -958,10 +958,389 @@ export const guidePages: GuideContent[] = [
       },
     ],
   },
+  {
+    slug: "what-life-path-number-means",
+    path: "/guides/what-life-path-number-means",
+    title: "What Life Path Number Means in Numerology",
+    description:
+      "Learn what a Life Path number means in numerology, why it is calculated from the full birth date, and how it shapes the deeper arc of a reading.",
+    eyebrow: "Numerology Guide",
+    heroTitle: "The Life Path number is the backbone of a numerology reading.",
+    intro:
+      "In numerology, the Life Path number is usually treated as the central current of the reading. It is derived from the full birth date and is used to describe the broader road of growth, lessons, patterns, and direction that life keeps unfolding through.",
+    keyTakeaways: [
+      "Life Path is calculated from the full birth date rather than from the name.",
+      "It usually describes the deeper path of growth rather than a passing mood or trait.",
+      "A Life Path number is strongest when read together with the other core numbers, not in total isolation.",
+    ],
+    sections: [
+      {
+        title: "Why the Life Path number matters first",
+        paragraphs: [
+          "When people first explore numerology, the Life Path number is often the starting point because it gives the broadest sense of direction. It is meant to describe the kind of lessons, internal development, and recurring themes that shape the life journey over time.",
+          "This is why readers often speak about the Life Path as the road beneath the road. It does not explain every detail of personality, but it gives a strong sense of what life is trying to teach and what kind of growth keeps becoming unavoidable.",
+        ],
+      },
+      {
+        title: "What it does and does not describe",
+        paragraphs: [
+          "A Life Path number is not meant to explain your entire identity. It is not the same thing as your emotional needs, your social impression, or the way your gifts become visible in the world. Instead, it acts more like the larger chapter structure of your life.",
+          "That is why a person may have a Life Path that feels quiet, reflective, and inward, while still appearing expressive or sociable on the surface. Other numerology numbers refine what the Life Path begins.",
+        ],
+      },
+      {
+        title: "How to use Life Path in a real reading",
+        paragraphs: [
+          "A useful way to read the Life Path is to ask: what kinds of experiences keep maturing this person, even when the outer circumstances change? What life themes repeat until they are understood more deeply?",
+          "In a full reading, Life Path is usually strongest when it is read alongside Destiny, Soul Urge, Personality, Birthday, and Attitude so the interpretation feels layered rather than one-note.",
+        ],
+      },
+    ],
+    faqs: [
+      {
+        question: "Is Life Path the most important number in numerology?",
+        answer:
+          "It is often treated as the most central number, but not the only important one. It works best as the backbone of the reading, with other numbers adding nuance and detail.",
+      },
+      {
+        question: "Why is Life Path based on the birth date?",
+        answer:
+          "Because numerology uses the birth date to describe the larger life road and developmental arc, while name-based numbers are usually used to describe expression, desire, or outer style.",
+      },
+    ],
+    related: [
+      {
+        href: "/guides/what-destiny-number-means",
+        label: "What Destiny Number Means",
+        description: "See how the life road differs from the way your gifts want to be expressed outwardly.",
+      },
+      {
+        href: "/numerology",
+        label: "Try the Numerology Reading",
+        description: "Return to the main numerology page and see your own Life Path in context.",
+      },
+    ],
+  },
+  {
+    slug: "what-destiny-number-means",
+    path: "/guides/what-destiny-number-means",
+    title: "What Destiny Number Means in Numerology",
+    description:
+      "Understand what a Destiny number means in numerology, how it is derived from the full name, and why it speaks to contribution, talent, and outer expression.",
+    eyebrow: "Numerology Guide",
+    heroTitle: "The Destiny number describes how your gifts want to become visible in the world.",
+    intro:
+      "If the Life Path shows the broader road of growth, the Destiny number shows the form your gifts naturally want to take in visible life. It is calculated from the full name and is often used to understand expression, contribution, talent, and outer impact.",
+    keyTakeaways: [
+      "Destiny is derived from the full letters in the name rather than the birth date.",
+      "It is often read as a number of expression, contribution, talent, and visible purpose.",
+      "Destiny refines the Life Path by showing how the inner road tends to take form outwardly.",
+    ],
+    sections: [
+      {
+        title: "What Destiny is trying to show",
+        paragraphs: [
+          "The Destiny number often answers the question: if this person’s deeper path is maturing inwardly, what shape does that path want to take in the outer world? It can speak to expression, contribution, work style, creative direction, and the kind of imprint a person naturally leaves behind.",
+          "That does not mean it predicts one exact profession or one single life role. Instead, it gives a style of contribution that may appear through many forms over time.",
+        ],
+      },
+      {
+        title: "How it differs from Life Path and Soul Urge",
+        paragraphs: [
+          "Life Path is broader and more developmental. Soul Urge is more private and emotional. Destiny sits between the two by showing how a person’s deeper qualities want to be translated into visible life.",
+          "This is why someone may feel one thing internally, grow through another theme over the course of life, and still express their gifts outwardly in a distinct third style. Destiny helps explain that outer expression.",
+        ],
+      },
+      {
+        title: "How to read it more wisely",
+        paragraphs: [
+          "The most helpful way to read Destiny is not to reduce it to career clichés. Instead, ask what kind of contribution this number is pointing toward. Is the person here to teach, build, create, care, organize, guide, heal, or initiate in a certain style?",
+          "A mature reading uses Destiny as an expression pattern, not a rigid label. It becomes most meaningful when read alongside the rest of the chart of numbers.",
+        ],
+      },
+    ],
+    faqs: [
+      {
+        question: "Is Destiny number the same as career number?",
+        answer:
+          "Not exactly. It can influence the way career and contribution unfold, but it is broader than job title alone. It is more about the style of expression and visible impact.",
+      },
+      {
+        question: "Why is Destiny taken from the full name?",
+        answer:
+          "Because numerology treats the full name as part of the outward pattern of expression and identity, making it a natural source for a number tied to contribution and visibility.",
+      },
+    ],
+    related: [
+      {
+        href: "/guides/what-life-path-number-means",
+        label: "What Life Path Number Means",
+        description: "Compare the outer expression number with the deeper road of growth.",
+      },
+      {
+        href: "/guides/what-personality-number-means",
+        label: "What Personality Number Means",
+        description: "See how Destiny differs from the first social impression people often feel.",
+      },
+    ],
+  },
+  {
+    slug: "what-soul-urge-number-means",
+    path: "/guides/what-soul-urge-number-means",
+    title: "What Soul Urge Number Means in Numerology",
+    description:
+      "Learn what a Soul Urge number means in numerology, why it is taken from the vowels of the name, and how it relates to inner desire and emotional truth.",
+    eyebrow: "Numerology Guide",
+    heroTitle: "The Soul Urge number points to what your heart quietly wants underneath the surface.",
+    intro:
+      "Soul Urge is one of the most inward-facing numerology numbers. It is derived from the vowels in the name and is often used to describe what feels emotionally true, nourishing, and deeply desired beneath outward roles and social performance.",
+    keyTakeaways: [
+      "Soul Urge is usually calculated from the vowels in the full name.",
+      "It is used to understand inner desire, emotional truth, and what feels deeply fulfilling.",
+      "Soul Urge often explains the difference between outer appearance and inner need.",
+    ],
+    sections: [
+      {
+        title: "Why Soul Urge feels so personal",
+        paragraphs: [
+          "Unlike more outward numbers, Soul Urge speaks to the private emotional core. It often describes what the person longs for, what kind of inner nourishment matters most, and what the heart is quietly moving toward even when life is noisy on the surface.",
+          "This is one reason Soul Urge can feel surprisingly accurate. It often names a motivation that is real even if it is not immediately visible to everyone else.",
+        ],
+      },
+      {
+        title: "How it differs from Personality",
+        paragraphs: [
+          "Personality is more about the first impression or outer tone. Soul Urge is what lies beneath that. A person may appear steady, polished, and highly responsible to others while internally longing for freedom, expression, intimacy, peace, or recognition in a very different way.",
+          "This difference between inner and outer style is a major reason numerology becomes more interesting when the numbers are read together rather than separately.",
+        ],
+      },
+      {
+        title: "How to use Soul Urge in a reading",
+        paragraphs: [
+          "A useful question to ask is: what does this person’s heart keep moving toward, even when life becomes distracting or demanding? The Soul Urge number often answers that question more clearly than the outer numbers do.",
+          "It is especially valuable in readings about fulfillment, emotional restlessness, recurring dissatisfaction, and the difference between success and true nourishment.",
+        ],
+      },
+    ],
+    faqs: [
+      {
+        question: "Is Soul Urge the same as personality?",
+        answer:
+          "No. Soul Urge is inward and emotional, while Personality is outward and social. The two can support each other or feel very different from one another.",
+      },
+      {
+        question: "Why is Soul Urge taken from vowels?",
+        answer:
+          "In numerology, vowels are traditionally treated as revealing a quieter inner current, which is why they are used for the number associated with desire and emotional truth.",
+      },
+    ],
+    related: [
+      {
+        href: "/guides/what-personality-number-means",
+        label: "What Personality Number Means",
+        description: "Compare the inner emotional number with the outer social tone.",
+      },
+      {
+        href: "/guides/what-life-path-number-means",
+        label: "What Life Path Number Means",
+        description: "See how inner desire differs from the broader road of growth.",
+      },
+    ],
+  },
+  {
+    slug: "what-personality-number-means",
+    path: "/guides/what-personality-number-means",
+    title: "What Personality Number Means in Numerology",
+    description:
+      "Understand what a Personality number means in numerology, how it is derived from the consonants in the name, and why it shapes first impressions and outer tone.",
+    eyebrow: "Numerology Guide",
+    heroTitle: "The Personality number describes the social doorway through which others often meet you.",
+    intro:
+      "The Personality number is usually derived from the consonants in the full name. In numerology, it is often used to describe first impressions, outer tone, visible style, and the way a person’s energy is initially received by others.",
+    keyTakeaways: [
+      "Personality is more about social impression than deeper emotional truth.",
+      "It often explains what people notice first before they know the full person.",
+      "It becomes most useful when compared with Soul Urge and Destiny.",
+    ],
+    sections: [
+      {
+        title: "What Personality is actually showing",
+        paragraphs: [
+          "The Personality number does not claim to reveal your entire nature. It is narrower than that. Its job is to show the tone, atmosphere, and social style that people often encounter first.",
+          "This can include the way your energy comes across, the kind of emotional signal you give off, and the qualities others may assume about you before they understand the deeper layers underneath.",
+        ],
+      },
+      {
+        title: "Why it matters in a reading",
+        paragraphs: [
+          "Many people have a real difference between how they feel inside and how they are perceived from the outside. Personality is often the number that explains that gap most clearly.",
+          "That makes it especially useful when a person feels misunderstood, overly simplified by others, or surprised by the kinds of assumptions people project onto them.",
+        ],
+      },
+      {
+        title: "How to read it with more depth",
+        paragraphs: [
+          "A good numerology reading does not treat Personality as a shallow label. Instead, it asks how the outer tone is interacting with the inner life and the larger path. Is the social mask aligned with the emotional truth, or does it partly protect it?",
+          "This is why Personality becomes more meaningful when read together with Soul Urge and Destiny rather than by itself.",
+        ],
+      },
+    ],
+    faqs: [
+      {
+        question: "Does Personality number show who I really am?",
+        answer:
+          "Only partly. It is more about the outer doorway, not the entire interior world. It becomes most accurate when paired with the more inward-facing numbers.",
+      },
+      {
+        question: "Why is Personality based on consonants?",
+        answer:
+          "Traditional numerology uses consonants to represent the more outward structure of the name, making them a natural source for the number tied to visible style and impression.",
+      },
+    ],
+    related: [
+      {
+        href: "/guides/what-soul-urge-number-means",
+        label: "What Soul Urge Number Means",
+        description: "See how the outer social tone differs from the private emotional truth.",
+      },
+      {
+        href: "/guides/what-destiny-number-means",
+        label: "What Destiny Number Means",
+        description: "Compare first impression with the broader style of outer expression and contribution.",
+      },
+    ],
+  },
+  {
+    slug: "what-birthday-number-means",
+    path: "/guides/what-birthday-number-means",
+    title: "What Birthday Number Means in Numerology",
+    description:
+      "Learn what a Birthday number means in numerology, why it is taken from the day you were born, and how it adds a natural talent or flavor to the reading.",
+    eyebrow: "Numerology Guide",
+    heroTitle: "The Birthday number adds a natural gift or flavor to the larger reading.",
+    intro:
+      "The Birthday number is a supporting number taken from the calendar day on which you were born. It is not usually treated as the backbone of the reading, but it often adds a recognizable talent, instinct, or repeating style that colors the whole profile.",
+    keyTakeaways: [
+      "Birthday number is derived from the day of birth rather than the full date.",
+      "It often points to a natural gift, instinctive strength, or familiar life flavor.",
+      "It is a supporting influence, not usually the central axis of the whole reading.",
+    ],
+    sections: [
+      {
+        title: "Why Birthday number feels specific",
+        paragraphs: [
+          "Because it comes only from the day of birth, the Birthday number often feels narrower and more precise than the broader Life Path. It can show a natural strength, a familiar instinct, or a quality that seems to show up easily in the personality.",
+          "This is one reason it often feels like a subtle but recognizable accent in the reading rather than the whole composition.",
+        ],
+      },
+      {
+        title: "What it adds to a numerology profile",
+        paragraphs: [
+          "A person’s Life Path may describe the larger road, but the Birthday number often explains something about how the person naturally moves within that road. It can add charm, discipline, intuition, sensitivity, boldness, or another recurring flavor depending on the number involved.",
+          "In practice, this is often the number that helps explain why two people with similar larger patterns still feel different in their everyday style.",
+        ],
+      },
+      {
+        title: "How to read it without overusing it",
+        paragraphs: [
+          "The Birthday number is most helpful when treated as a supporting tone. It adds texture and nuance, but it usually should not be allowed to override the larger pattern shown by the core numbers.",
+          "Think of it as a natural gift or familiar accent rather than the final authority on the whole reading.",
+        ],
+      },
+    ],
+    faqs: [
+      {
+        question: "Is Birthday number as important as Life Path?",
+        answer:
+          "Usually no. It is generally treated as a supporting influence that adds flavor, talent, or nuance rather than replacing the main reading axis.",
+      },
+      {
+        question: "Why use the day of birth by itself?",
+        answer:
+          "Because numerology treats the birth day as a compact supporting signal that often reveals a natural quality or instinctive style present from early on.",
+      },
+    ],
+    related: [
+      {
+        href: "/guides/what-attitude-number-means",
+        label: "What Attitude Number Means",
+        description: "Compare Birthday’s supporting tone with the energy you naturally lead with.",
+      },
+      {
+        href: "/guides/what-life-path-number-means",
+        label: "What Life Path Number Means",
+        description: "See how the day-of-birth influence differs from the larger road of life.",
+      },
+    ],
+  },
+  {
+    slug: "what-attitude-number-means",
+    path: "/guides/what-attitude-number-means",
+    title: "What Attitude Number Means in Numerology",
+    description:
+      "Understand what an Attitude number means in numerology, how it is derived from birth month and day, and why it relates to first approach and immediate tone.",
+    eyebrow: "Numerology Guide",
+    heroTitle: "The Attitude number describes the energy you often lead with at first contact.",
+    intro:
+      "The Attitude number is usually derived from the month and day of birth together. In numerology, it is often used to describe the tone you naturally bring into new situations, first impressions, and the way you initially meet life before deeper layers unfold.",
+    keyTakeaways: [
+      "Attitude is usually calculated from the birth month and day together.",
+      "It often describes first response, social entry point, and initial tone.",
+      "It is a supporting influence that helps explain how you begin things or meet the world at first contact.",
+    ],
+    sections: [
+      {
+        title: "Why Attitude feels immediate",
+        paragraphs: [
+          "Some numbers in numerology feel deep and long-range, while others feel immediate. Attitude belongs more to that second category. It often describes the first way you approach people, situations, and fresh chapters before your deeper nature fully reveals itself.",
+          "This is why it can feel especially accurate around first impressions, reactions, and instinctive social posture.",
+        ],
+      },
+      {
+        title: "What it can explain",
+        paragraphs: [
+          "The Attitude number can help explain why a person seems bold at first, cautious at first, warm at first, analytical at first, or unusually energetic at first contact. It is often less about the whole personality and more about the opening tone of the encounter.",
+          "That makes it especially useful when someone wants to understand how they tend to enter rooms, conversations, or new life chapters.",
+        ],
+      },
+      {
+        title: "How to keep it in proportion",
+        paragraphs: [
+          "Attitude should not be mistaken for the whole reading. It is a useful secondary lens, but it becomes much more meaningful when it is read next to the larger numerology structure rather than as a standalone verdict.",
+          "In practice, it often works best as an explanation for first tone, while the deeper numbers explain the fuller character underneath.",
+        ],
+      },
+    ],
+    faqs: [
+      {
+        question: "Is Attitude the same as Personality number?",
+        answer:
+          "Not exactly. Both can affect first impression, but Attitude is more about initial approach and entry tone, while Personality is more about the consistent outer style people tend to perceive.",
+      },
+      {
+        question: "Why is Attitude taken from month and day?",
+        answer:
+          "Because numerology treats that part of the birth date as a compact signal for immediate style, first response, and the tone with which a person tends to approach life.",
+      },
+    ],
+    related: [
+      {
+        href: "/guides/what-personality-number-means",
+        label: "What Personality Number Means",
+        description: "See how Attitude differs from the broader outer impression people receive from you.",
+      },
+      {
+        href: "/guides/what-birthday-number-means",
+        label: "What Birthday Number Means",
+        description: "Compare the energy you lead with to the supporting gift or flavor in your chart.",
+      },
+    ],
+  },
 ]
 
 export const allSeoPaths = [
   "/",
+  "/numerology",
   "/about",
   "/contact",
   "/privacy",

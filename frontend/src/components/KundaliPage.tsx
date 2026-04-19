@@ -116,6 +116,12 @@ const queryClusterLinks = [
     body:
       "Open a daily-timing content cluster around tithi, nakshatra, yoga, karana, and practical planning.",
   },
+  {
+    href: "/numerology",
+    title: "Numerology",
+    body:
+      "Add a lightweight name-and-birth-date numerology tool for Life Path, Destiny, Soul Urge, Personality, and other core numbers.",
+  },
 ]
 
 const faqItems = [
@@ -240,6 +246,12 @@ export default function KundaliPage() {
                   Explore free kundli
                 </Link>
                 <Link
+                  href="/numerology"
+                  className="rounded-full border border-cyan-300/16 bg-cyan-400/10 px-4 py-2 text-cyan-100 transition-colors hover:bg-cyan-400/18"
+                >
+                  Try numerology
+                </Link>
+                <Link
                   href="/contact"
                   className="rounded-full border border-white/12 bg-white/8 px-4 py-2 text-slate-100 transition-colors hover:bg-white/14"
                 >
@@ -255,10 +267,10 @@ export default function KundaliPage() {
             </div>
 
             <div className="space-y-4">
-              <div className="hero-logo-stage relative mx-auto w-full max-w-[380px] lg:mr-0 lg:ml-auto">
+              <div className="hero-logo-stage relative mx-auto w-full max-w-[410px] lg:mr-0 lg:ml-auto">
                 <div className="hero-logo-glow" aria-hidden="true" />
                 <div className="hero-logo-shimmer" aria-hidden="true" />
-                <div className="hero-logo-orbit relative flex min-h-[240px] items-center justify-center px-2 pt-2 pb-1">
+                <div className="hero-logo-orbit relative flex min-h-[264px] items-center justify-center px-2 pt-2 pb-1">
                   <div className="hero-logo-ring" aria-hidden="true" />
                   <Image
                     src="/main-logo.png"
@@ -266,7 +278,7 @@ export default function KundaliPage() {
                     width={600}
                     height={586}
                     priority
-                    className="hero-logo-image relative z-10 mx-auto h-auto w-full max-w-[320px]"
+                    className="hero-logo-image relative z-10 mx-auto h-auto w-full max-w-[348px]"
                   />
                 </div>
               </div>

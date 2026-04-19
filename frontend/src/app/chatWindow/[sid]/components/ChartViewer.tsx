@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { buildAuthHeaders, useAuth } from "@/lib/auth"
-import { ChevronDown, ChevronUp, Crown, Loader2, Lock, X } from "lucide-react"
+import { ChevronDown, ChevronUp, Crown, Download, Loader2, Lock, X } from "lucide-react"
 
 type ChartViewerProps = {
   backendUrl: string
@@ -39,6 +39,45 @@ type ChartResponse = {
     degree_in_sign?: number
   }
   details: ChartPlanetDetail[]
+}
+
+type ChartExportPayload = {
+  chart_code: string
+  chart_label: string
+  summary: string
+  ascendant?: {
+    sign?: string
+    degree_in_sign?: number
+  }
+  details: ChartPlanetDetail[]
+  chart: {
+    chart: string
+    label: string
+    source: string
+    style: string
+    ascendant?: {
+      sign?: string
+      degree_in_sign?: number
+    }
+    house_cusps_deg?: Record<string, number>
+    planets?: Array<Record<string, unknown>>
+    name?: string
+    division?: number
+    purpose?: string
+    house_system?: string
+    house_lords?: Record<string, unknown>
+    janma_nakshatra?: Record<string, unknown>
+  }
+}
+
+type ChartExportResponse = {
+  name: string
+  session_id: string
+  style: string
+  plan: string
+  is_premium: boolean
+  generated_at: string
+  charts: ChartExportPayload[]
 }
 
 type GemstoneRemedy = {
@@ -96,6 +135,54 @@ const STYLE_OPTIONS = [
   { value: "south", label: "South Indian" },
   { value: "north", label: "North Indian" },
 ]
+
+const CHART_READING_AREAS: Record<string, string> = {
+  D1: "identity, life direction, momentum, and visible life circumstances",
+  D9: "marriage themes, maturity, inner values, and how the chart deepens over time",
+  D10: "career reputation, authority, professional output, and public achievement",
+}
+
+const PLANET_OUTCOME_AREAS: Record<string, string> = {
+  Sun: "leadership, visibility, authority, and confidence",
+  Moon: "public response, emotional steadiness, adaptability, and support",
+  Mars: "execution, courage, competition, and decisive action",
+  Mercury: "thinking, writing, analysis, trade, planning, and communication",
+  Jupiter: "mentorship, growth, credibility, wisdom, and expansion",
+  Venus: "relationships, aesthetics, comfort, diplomacy, and attraction",
+  Saturn: "discipline, responsibility, endurance, structure, and long-term results",
+  Rahu: "ambition, amplification, unconventional moves, and worldly appetite",
+  Ketu: "detachment, specialization, karmic residue, and inner sharpness",
+}
+
+const HOUSE_OUTCOME_AREAS: Record<number, string> = {
+  1: "self-presentation, confidence, health, and the way life starts moving",
+  2: "income, speech, family patterns, and what gets built over time",
+  3: "effort, communication, self-made skill, courage, and initiative",
+  4: "home life, emotional grounding, property matters, and private comfort",
+  5: "creativity, intelligence, children, romance, and speculative thinking",
+  6: "workload, competition, service, conflict, debt, and recovery",
+  7: "partnerships, clients, contracts, visibility, and one-to-one dynamics",
+  8: "crises, reinvention, secrecy, inheritance, and psychological pressure",
+  9: "belief, luck, teachers, higher learning, travel, and dharma",
+  10: "career reputation, authority, status, promotions, and public work",
+  11: "gains, salary growth, networks, patrons, audience, and long-term rewards",
+  12: "expenses, retreat, isolation, foreign links, sleep, and hidden drains",
+}
+
+const SIGN_OUTCOME_FLAVORS: Record<string, string> = {
+  Aries: "through bold initiative, speed, and willingness to act first",
+  Taurus: "through patience, stability, and tangible value creation",
+  Gemini: "through communication, versatility, networking, and fast learning",
+  Cancer: "through care, intuition, protection, and emotional intelligence",
+  Leo: "through confidence, performance, leadership, and personal presence",
+  Virgo: "through precision, systems, craft, and practical intelligence",
+  Libra: "through diplomacy, partnerships, aesthetics, and balance",
+  Scorpio: "through strategy, intensity, privacy, and deep transformation",
+  Sagittarius: "through teaching, faith, exploration, and larger vision",
+  Capricorn: "through discipline, structure, ambition, and measurable effort",
+  Aquarius: "through unconventional thinking, community, and future-oriented moves",
+  Pisces: "through imagination, empathy, surrender, and spiritual sensitivity",
+}
 
 const ASTROLOGY_TERM_EXPLANATIONS: Record<string, string> = {
   exalted: "An exalted planet expresses its strength very clearly in that sign, so its positive qualities tend to operate with confidence and support.",
@@ -195,6 +282,398 @@ function insightKey(chartCode: string, planetName: string) {
   return `${chartCode}-${planetName}`
 }
 
+function slugifyFilenamePart(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+}
+
+function escapeHtml(value: string) {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;")
+}
+
+function sanitizeChartSvg(svg: string) {
+  return svg
+    .replace(/<\?xml[\s\S]*?\?>/gi, "")
+    .replace(/<!DOCTYPE[\s\S]*?>/gi, "")
+    .trim()
+}
+
+function downloadBlob(blob: Blob, filename: string) {
+  const url = window.URL.createObjectURL(blob)
+  const link = document.createElement("a")
+  link.href = url
+  link.download = filename
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  window.URL.revokeObjectURL(url)
+}
+
+function joinNaturalLanguage(items: string[]) {
+  if (items.length === 0) return ""
+  if (items.length === 1) return items[0]
+  if (items.length === 2) return `${items[0]} and ${items[1]}`
+  return `${items.slice(0, -1).join(", ")}, and ${items[items.length - 1]}`
+}
+
+function formatHouseOrdinal(house: number) {
+  if (house % 10 === 1 && house % 100 !== 11) return `${house}st`
+  if (house % 10 === 2 && house % 100 !== 12) return `${house}nd`
+  if (house % 10 === 3 && house % 100 !== 13) return `${house}rd`
+  return `${house}th`
+}
+
+function getStatusOutcomeNote(planet: ChartPlanetDetail) {
+  const statusSet = new Set(planet.statuses)
+  if (statusSet.has("Exalted")) {
+    return "Because it is exalted, this result can come with unusual competence, credibility, and repeatability."
+  }
+  if (statusSet.has("Own Sign") || statusSet.has("Moolatrikona")) {
+    return "Because it is working from its own ground, the planet tends to deliver more steadily and with less internal conflict."
+  }
+  if (statusSet.has("Debilitated")) {
+    return "Because it is debilitated, the promise is still present, but results usually demand correction, humility, or stronger structure first."
+  }
+  if (statusSet.has("Combust")) {
+    return "Because it is combust, the issue may stay active internally before it becomes easy to express outwardly."
+  }
+  if (planet.retrograde) {
+    return "Because it is retrograde, results often arrive through revision, rethinking, delayed timing, or second attempts."
+  }
+  return ""
+}
+
+function buildPlacementOutcome(chart: ChartResponse, planet: ChartPlanetDetail) {
+  const chartArea = CHART_READING_AREAS[chart.chart_code] || "important life outcomes"
+  const planetArea = PLANET_OUTCOME_AREAS[planet.name] || "major life themes"
+  const houseArea = HOUSE_OUTCOME_AREAS[planet.house] || "important life outcomes"
+  const signFlavor = SIGN_OUTCOME_FLAVORS[planet.sign] || "through the sign qualities operating here"
+  const houseOrdinal = formatHouseOrdinal(planet.house)
+  const statusNote = getStatusOutcomeNote(planet)
+
+  if (planet.influence === "supportive") {
+    return `${planet.name} in ${planet.sign} in the ${houseOrdinal} house can produce strong results in ${houseArea}. In ${chart.chart_label}, that usually means ${planetArea} starts paying off ${signFlavor}, so the native may see more concrete movement rather than just potential. ${statusNote}`.trim()
+  }
+
+  if (planet.influence === "challenging") {
+    return `${planet.name} in the ${houseOrdinal} house can make ${houseArea} harder to stabilize. In a chart about ${chartArea}, this often shows up as delays, overcorrection, strain, or outcomes that improve only after discipline and realism increase. ${statusNote}`.trim()
+  }
+
+  return `${planet.name} in ${planet.sign} in the ${houseOrdinal} house gives mixed but usable results around ${houseArea}. In ${chart.chart_label}, it can still create meaningful outcomes through ${planetArea}, but timing and consistency matter more than raw intensity. ${statusNote}`.trim()
+}
+
+function buildChartOutcomeHighlights(chart: ChartResponse) {
+  const supportive = chart.details.filter((planet) => planet.influence === "supportive")
+  const challenging = chart.details.filter((planet) => planet.influence === "challenging")
+  const mixed = chart.details.filter((planet) => planet.influence === "mixed")
+  const strongStatus = chart.details.find((planet) =>
+    planet.statuses.some((status) => ["Exalted", "Own Sign", "Moolatrikona", "Debilitated", "Combust"].includes(status))
+  )
+  const retrograde = chart.details.filter((planet) => planet.retrograde).map((planet) => planet.name)
+
+  const highlights: string[] = []
+  highlights.push(
+    `${chart.chart_label} is mainly read for ${CHART_READING_AREAS[chart.chart_code] || "its major life outcomes"}, so the placements here are meant to describe lived results rather than abstract symbolism.`
+  )
+
+  if (supportive.length > 0) {
+    highlights.push(buildPlacementOutcome(chart, supportive[0]))
+  }
+
+  if (challenging.length > 0) {
+    highlights.push(buildPlacementOutcome(chart, challenging[0]))
+  } else if (mixed.length > 0) {
+    highlights.push(buildPlacementOutcome(chart, mixed[0]))
+  }
+
+  if (strongStatus) {
+    highlights.push(
+      `${strongStatus.name} is one of the defining technical anchors in this chart. In practical terms, that means its outcomes can show up more loudly in real life than a weaker placement would. ${getStatusOutcomeNote(strongStatus)}`.trim()
+    )
+  }
+
+  if (retrograde.length > 0) {
+    highlights.push(
+      `Retrograde emphasis from ${joinNaturalLanguage(retrograde.slice(0, 3))} suggests that some results here unfold non-linearly: through revisiting decisions, repeating lessons, or succeeding on the second pass rather than the first.`
+    )
+  }
+
+  return highlights.slice(0, 3)
+}
+
+function getChartPlacementBadges(chart: ChartResponse) {
+  return chart.details
+    .slice(0, 4)
+    .map((planet) => `${planet.name} • ${planet.sign} • H${planet.house}`)
+}
+
+function buildVisualChartsPrintDocument(params: {
+  name: string
+  styleLabel: string
+  charts: ChartResponse[]
+}) {
+  const { name, styleLabel, charts } = params
+  const chartPages = charts
+    .map((chart) => {
+      const ascLine = `Ascendant: ${chart.ascendant?.sign || "Unknown"} ${formatDegree(chart.ascendant?.degree_in_sign)}`
+      const sanitizedSvg = sanitizeChartSvg(chart.svg)
+      const outcomeHighlights = buildChartOutcomeHighlights(chart)
+      const placementBadges = getChartPlacementBadges(chart)
+      return `
+        <section class="chart-page">
+          <div class="chart-header">
+            <div class="eyebrow">${escapeHtml(chart.chart_code)}</div>
+            <h2>${escapeHtml(chart.chart_label)}</h2>
+            <p>${escapeHtml(ascLine)}</p>
+          </div>
+          <div class="chart-layout">
+            <div class="chart-frame chart-frame--${escapeHtml(chart.style)}">
+              ${sanitizedSvg}
+            </div>
+            <aside class="chart-notes">
+              <div class="notes-section">
+                <div class="notes-label">Snapshot</div>
+                <p>${escapeHtml(`This ${chart.chart_label} view is shown in ${styleLabel.toLowerCase()} format, matching the style selected inside Nakshatra AI. The notes below focus on practical outcomes and pressure points.`)}</p>
+              </div>
+              <div class="notes-section">
+                <div class="notes-label">Likely Outcomes</div>
+                <ul class="notes-list">
+                  ${outcomeHighlights.map((fact) => `<li>${escapeHtml(fact)}</li>`).join("")}
+                </ul>
+              </div>
+              <div class="notes-section">
+                <div class="notes-label">Key Placements</div>
+                <div class="badge-grid">
+                  ${placementBadges.map((badge) => `<span class="placement-badge">${escapeHtml(badge)}</span>`).join("")}
+                </div>
+              </div>
+            </aside>
+          </div>
+        </section>
+      `
+    })
+    .join("")
+
+  return `
+    <!doctype html>
+    <html lang="en">
+      <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>${escapeHtml(name)} Charts</title>
+        <style>
+          @page {
+            size: A4 landscape;
+            margin: 10mm;
+          }
+          * {
+            box-sizing: border-box;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
+          html, body {
+            margin: 0;
+            padding: 0;
+            background: #f8fafc;
+            color: #0f172a;
+            font-family: "Georgia", "Times New Roman", serif;
+          }
+          body {
+            padding: 0;
+          }
+          .cover,
+          .chart-page {
+            break-after: page;
+            page-break-after: always;
+          }
+          .cover {
+            min-height: calc(100vh - 20mm);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            gap: 14px;
+            padding: 4mm 2mm;
+          }
+          .cover-mark {
+            font-size: 12px;
+            letter-spacing: 0.32em;
+            text-transform: uppercase;
+            color: #0369a1;
+          }
+          .cover h1 {
+            margin: 0;
+            font-size: 30px;
+            line-height: 1.15;
+            font-weight: 700;
+          }
+          .cover p {
+            margin: 0;
+            font-size: 14px;
+            line-height: 1.6;
+            color: #334155;
+            max-width: 760px;
+          }
+          .chart-page {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            padding: 0;
+            break-inside: avoid;
+            page-break-inside: avoid;
+            height: 185mm;
+            overflow: hidden;
+          }
+          .chart-header {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+          }
+          .eyebrow {
+            font-size: 11px;
+            letter-spacing: 0.24em;
+            text-transform: uppercase;
+            color: #0369a1;
+          }
+          .chart-header h2 {
+            margin: 0;
+            font-size: 24px;
+            line-height: 1.2;
+            font-weight: 700;
+          }
+          .chart-header p {
+            margin: 0;
+            font-size: 12px;
+            line-height: 1.4;
+            color: #475569;
+          }
+          .chart-layout {
+            display: grid;
+            grid-template-columns: minmax(0, 1.05fr) minmax(260px, 0.95fr);
+            gap: 10px;
+            align-items: stretch;
+            flex: 1;
+            min-height: 0;
+          }
+          .chart-frame {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 18px;
+            border: 1px solid #cbd5e1;
+            background: linear-gradient(180deg, #081120 0%, #020617 100%);
+            padding: 10px;
+            min-height: 0;
+            height: 100%;
+            overflow: hidden;
+          }
+          .chart-notes {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            min-height: 0;
+            overflow: hidden;
+          }
+          .notes-section {
+            border: 1px solid #dbe5f0;
+            border-radius: 16px;
+            background: #ffffff;
+            padding: 11px 12px;
+          }
+          .notes-label {
+            margin-bottom: 6px;
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 0.22em;
+            text-transform: uppercase;
+            color: #0369a1;
+          }
+          .notes-section p {
+            margin: 0;
+            font-size: 11px;
+            line-height: 1.5;
+            color: #334155;
+          }
+          .notes-list {
+            margin: 0;
+            padding-left: 16px;
+          }
+          .notes-list li {
+            margin: 0 0 5px;
+            font-size: 11px;
+            line-height: 1.45;
+            color: #334155;
+          }
+          .notes-list li:last-child {
+            margin-bottom: 0;
+          }
+          .badge-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+          }
+          .placement-badge {
+            display: inline-flex;
+            align-items: center;
+            border-radius: 999px;
+            background: #eaf5ff;
+            border: 1px solid #bfdbfe;
+            color: #0f3b63;
+            padding: 5px 9px;
+            font-size: 10px;
+            line-height: 1.3;
+          }
+          .chart-frame--north svg {
+            width: 100%;
+            max-width: 300px;
+            height: auto;
+            display: block;
+          }
+          .chart-frame--south svg {
+            width: 100%;
+            max-width: 360px;
+            height: auto;
+            display: block;
+          }
+          svg {
+            overflow: visible;
+          }
+          @media print {
+            .chart-page:last-child {
+              break-after: auto;
+              page-break-after: auto;
+            }
+          }
+        </style>
+        <script>
+          window.addEventListener("load", () => {
+            window.setTimeout(() => {
+              window.focus();
+              window.print();
+            }, 350);
+          });
+        </script>
+      </head>
+      <body>
+        <section class="cover">
+          <div class="cover-mark">Nakshatra AI</div>
+          <h1>${escapeHtml(name)} Visual Charts</h1>
+          <p>${escapeHtml(`This export contains the ${styleLabel} chart views currently selected in the charts panel.`)}</p>
+          <p>${escapeHtml(`Included charts: ${charts.map((chart) => chart.chart_label).join(", ")}.`)}</p>
+        </section>
+        ${chartPages}
+      </body>
+    </html>
+  `
+}
+
 export default function ChartViewer({
   backendUrl,
   open,
@@ -209,6 +688,9 @@ export default function ChartViewer({
   const [remedies, setRemedies] = React.useState<RemediesResponse | null>(null)
   const [remediesLoading, setRemediesLoading] = React.useState(false)
   const [remediesError, setRemediesError] = React.useState("")
+  const [downloadingVisualPdf, setDownloadingVisualPdf] = React.useState(false)
+  const [downloadingJson, setDownloadingJson] = React.useState(false)
+  const [exportError, setExportError] = React.useState("")
   const [expandedInsights, setExpandedInsights] = React.useState<Record<string, boolean>>({})
   const planetRowRefs = React.useRef<Record<string, HTMLDivElement | null>>({})
   const canSeeDivisional = Boolean(user?.plan_access.features.divisional_charts)
@@ -224,6 +706,8 @@ export default function ChartViewer({
         .filter((chart): chart is ChartResponse => Boolean(chart)),
     [cache, style, visibleOptions]
   )
+  const styleLabel = STYLE_OPTIONS.find((option) => option.value === style)?.label || style
+  const isExportReady = visibleCharts.length > 0 && visibleCharts.length === visibleOptions.length && !loading
 
   function toggleInsight(key: string) {
     setExpandedInsights((prev) => ({
@@ -259,10 +743,85 @@ export default function ChartViewer({
     [openInsightAndScroll]
   )
 
+  const handleDownloadVisualPdf = React.useCallback(async () => {
+    if (!isExportReady || visibleCharts.length === 0) {
+      setExportError("Please wait for the charts to finish loading before exporting.")
+      return
+    }
+
+    setDownloadingVisualPdf(true)
+    setExportError("")
+
+    try {
+      const printDocument = buildVisualChartsPrintDocument({
+        name: user?.name || "Nakshatra User",
+        styleLabel,
+        charts: visibleCharts,
+      })
+      const printBlob = new Blob([printDocument], { type: "text/html;charset=utf-8" })
+      const printUrl = window.URL.createObjectURL(printBlob)
+      const printWindow = window.open(printUrl, "_blank", "width=1200,height=900")
+      if (!printWindow) {
+        throw new Error("Please allow pop-ups so the chart PDF can open in a print window.")
+      }
+      window.setTimeout(() => {
+        window.URL.revokeObjectURL(printUrl)
+      }, 60_000)
+    } catch (err) {
+      setExportError(err instanceof Error ? err.message : "Failed to prepare the chart PDF.")
+    } finally {
+      setDownloadingVisualPdf(false)
+    }
+  }, [isExportReady, styleLabel, user?.name, visibleCharts])
+
+  const handleDownloadChartData = React.useCallback(async () => {
+    if (!token || !sessionId) return
+
+    setDownloadingJson(true)
+    setExportError("")
+
+    try {
+      const res = await fetch(
+        `${backendUrl}/charts/export-data?style=${encodeURIComponent(style)}`,
+        {
+          headers: buildAuthHeaders(token, {
+            "X-Session-Id": sessionId,
+          }),
+        }
+      )
+
+      if (!res.ok) {
+        let message = "Failed to download chart data."
+        try {
+          const data = await res.json()
+          message = data?.detail || data?.error || message
+        } catch {
+          // ignore JSON parse failure and keep default message
+        }
+        throw new Error(message)
+      }
+
+      const data: ChartExportResponse = await res.json()
+      const fileRoot = slugifyFilenamePart(data.name || sessionId) || "kundli-charts"
+      const blob = new Blob([JSON.stringify(data, null, 2)], {
+        type: "application/json;charset=utf-8",
+      })
+      downloadBlob(blob, `${fileRoot}-${style}-chart-data.json`)
+    } catch (err) {
+      setExportError(err instanceof Error ? err.message : "Failed to download chart data.")
+    } finally {
+      setDownloadingJson(false)
+    }
+  }, [backendUrl, sessionId, style, token])
+
   React.useEffect(() => {
     setRemedies(null)
     setRemediesError("")
   }, [sessionId])
+
+  React.useEffect(() => {
+    setExportError("")
+  }, [sessionId, style])
 
   React.useEffect(() => {
     if (!open || !sessionId || remedies || !token || !canSeeRemedies) return
@@ -403,6 +962,34 @@ export default function ChartViewer({
             ))}
             <Button
               type="button"
+              variant="outline"
+              onClick={handleDownloadVisualPdf}
+              disabled={downloadingVisualPdf || !isExportReady}
+              className="border-cyan-400/25 bg-cyan-500/10 text-cyan-100 hover:bg-cyan-500/20"
+            >
+              {downloadingVisualPdf ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Download className="h-4 w-4" />
+              )}
+              <span className="ml-2">Download Visual Charts (PDF)</span>
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleDownloadChartData}
+              disabled={downloadingJson || !token}
+              className="border-white/15 bg-slate-900/80 text-slate-200 hover:bg-slate-800"
+            >
+              {downloadingJson ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Download className="h-4 w-4" />
+              )}
+              <span className="ml-2">Download Chart Data (JSON)</span>
+            </Button>
+            <Button
+              type="button"
               variant="ghost"
               onClick={onClose}
               className="text-slate-300 hover:bg-white/10 hover:text-white"
@@ -438,7 +1025,7 @@ export default function ChartViewer({
                       <div>
                         <div className="font-semibold text-white">Premium unlocks D9 and D10</div>
                         <p className="mt-1 text-amber-100/90">
-                          Free accounts can view the Lagna chart. Premium adds divisional charts, remedies, daily transits, and downloadable reports.
+                          Free accounts can export the Lagna chart as a visual PDF or JSON. Premium adds Navamsha, Dashamsha, remedies, and the full multi-chart export set.
                         </p>
                       </div>
                     </div>
@@ -609,7 +1196,7 @@ export default function ChartViewer({
 
                   {!canSeeRemedies ? (
                     <div className="rounded-2xl border border-dashed border-white/12 bg-slate-950/55 p-4 text-sm leading-6 text-slate-300">
-                      Upgrade to Premium to unlock personalized remedies, daily transit predictions, and PDF report downloads.
+                      Upgrade to Premium to unlock personalized remedies, daily transit predictions, and full D1, D9, and D10 visual and data exports.
                     </div>
                   ) : remediesLoading && !remedies ? (
                     <div className="flex min-h-[180px] items-center justify-center text-slate-300">
@@ -712,6 +1299,9 @@ export default function ChartViewer({
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     Updating charts...
                   </div>
+                ) : null}
+                {exportError ? (
+                  <div className="mt-4 text-center text-xs text-rose-300">{exportError}</div>
                 ) : null}
                 {error && visibleCharts.length > 0 ? (
                   <div className="mt-4 text-center text-xs text-rose-300">{error}</div>

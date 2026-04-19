@@ -10,6 +10,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const isChatRoute = pathname?.startsWith("/chatWindow/")
   const footerLinks = [
+    { href: "/numerology", label: "Numerology" },
     { href: "/about", label: "About" },
     { href: "/contact", label: "Contact" },
     { href: "/privacy", label: "Privacy" },
