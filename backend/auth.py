@@ -213,7 +213,7 @@ def build_plan_access(user_doc: Dict[str, Any]) -> Dict[str, Any]:
             "remedies": is_premium,
             "compatibility": is_premium,
             "daily_transits": is_premium,
-            "pdf_report": is_premium,
+            "pdf_report": True,
         },
     }
 

@@ -331,15 +331,15 @@ body {
 
 .hero-logo-orbit {
   isolation: isolate;
-  transform: translateX(-30px);
+  transform: translateX(0);
 }
 
 .hero-logo-ring {
   position: absolute;
   left: 50%;
   top: 49%;
-  width: 220px;
-  height: 220px;
+  width: 244px;
+  height: 244px;
   transform: translate(-50%, -50%);
   border-radius: 999px;
   border: 1px solid rgba(251, 191, 36, 0.22);
@@ -355,9 +355,13 @@ body {
 }
 
 @media (min-width: 1024px) {
+  .hero-logo-orbit {
+    transform: translateX(-30px);
+  }
+
   .hero-logo-ring {
     top: 47%;
-    width: 236px;
-    height: 236px;
+    width: 262px;
+    height: 262px;
   }
 }

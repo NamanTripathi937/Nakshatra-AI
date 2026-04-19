@@ -68,6 +68,7 @@ from billing import (
 )
 from database import connect_to_mongo, close_mongo_connection, get_payments_collection, get_sessions_collection, get_users_collection
 from models import SessionData, Message, PaymentRecord, UserData
+from numerology import NumerologyInputError, build_numerology_profile
 
 # ----- Logging -----
 logging.basicConfig(level=logging.INFO)
@@ -142,6 +143,12 @@ CHART_OPTIONS = {
     "D1": {"label": "Lagna / Rasi", "source": "natal"},
     "D9": {"label": "Navamsha", "source": "divisional"},
     "D10": {"label": "Dashamsha", "source": "divisional"},
+}
+
+CHART_EXPORT_SUMMARIES = {
+    "D1": "The Lagna chart captures the natal foundation: temperament, life direction, and the main planetary framework.",
+    "D9": "The Navamsha deepens the chart by showing dharma, marriage themes, and how planets mature over time.",
+    "D10": "The Dashamsha focuses on vocation, visible karma, and how professional life tends to unfold.",
 }
 
 CHART_STYLES = {"north", "south"}
@@ -406,6 +413,34 @@ def ping():
     """Used by frontend to cold-start backend."""
     logger.info("Ping received")
     return {"status": "ok"}
+
+
+@app.post("/numerology")
+async def numerology(request: Request):
+    try:
+        payload = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON payload")
+
+    full_name = (payload.get("fullName") or payload.get("full_name") or "").strip()
+    date_of_birth = (payload.get("dateOfBirth") or payload.get("date_of_birth") or "").strip()
+
+    if not date_of_birth:
+        year = payload.get("year")
+        month = payload.get("month")
+        day = payload.get("date") or payload.get("day")
+        if year is not None and month is not None and day is not None:
+            try:
+                date_of_birth = f"{int(year):04d}-{int(month):02d}-{int(day):02d}"
+            except (TypeError, ValueError):
+                raise HTTPException(status_code=400, detail="Birth date fields must be valid numbers")
+
+    try:
+        result = build_numerology_profile(full_name, date_of_birth)
+    except NumerologyInputError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    return JSONResponse(content=result)
 
 
 @app.post("/auth/google")
@@ -3459,6 +3494,49 @@ def render_chart_svg(
     return svg
 
 
+def get_chart_codes_for_plan(plan_access: Dict[str, Any]) -> list[str]:
+    if plan_access["features"]["divisional_charts"]:
+        return list(CHART_OPTIONS.keys())
+    return ["D1"]
+
+
+def build_chart_export_payload(
+    kundli: Dict[str, Any],
+    chart_code: str,
+    style: str,
+    details: list[Dict[str, Any]],
+) -> Dict[str, Any]:
+    chart_data = get_chart_data_for_code(kundli, chart_code)
+    export_chart = {
+        "chart": chart_code,
+        "label": CHART_OPTIONS[chart_code]["label"],
+        "source": CHART_OPTIONS[chart_code]["source"],
+        "style": style,
+        "ascendant": chart_data.get("ascendant") or {},
+        "house_cusps_deg": chart_data.get("house_cusps_deg") or {},
+        "planets": chart_data.get("planets") or [],
+    }
+
+    if chart_code != "D1":
+        export_chart["name"] = chart_data.get("name")
+        export_chart["division"] = chart_data.get("division")
+        export_chart["purpose"] = chart_data.get("purpose")
+        export_chart["house_system"] = chart_data.get("house_system")
+        export_chart["house_lords"] = chart_data.get("house_lords") or {}
+    else:
+        export_chart["house_system"] = "Whole Sign"
+        export_chart["janma_nakshatra"] = kundli.get("janma_nakshatra") or {}
+
+    return {
+        "chart_code": chart_code,
+        "chart_label": CHART_OPTIONS[chart_code]["label"],
+        "summary": CHART_EXPORT_SUMMARIES.get(chart_code, "Structured chart export."),
+        "ascendant": export_chart["ascendant"],
+        "details": details,
+        "chart": export_chart,
+    }
+
+
 async def get_or_restore_kundli(session_id: str) -> Optional[Dict[str, Any]]:
     kundli = get_kundli(session_id)
     if kundli:
@@ -3982,6 +4060,47 @@ async def charts(request: Request):
             "svg": svg,
             "ascendant": chart_data.get("ascendant") or {},
             "details": details,
+        }
+    )
+
+
+@app.get("/charts/export-data")
+async def charts_export_data(request: Request):
+    user_doc, session_id, session_doc = await get_authenticated_session(
+        request,
+        projection={"full_name": 1},
+    )
+    plan_access = build_plan_access(user_doc)
+    style = (request.query_params.get("style") or "south").lower()
+
+    if style not in CHART_STYLES:
+        raise HTTPException(status_code=400, detail=f"Unsupported chart style: {style}")
+
+    kundli = await get_or_restore_kundli(session_id)
+    if not kundli:
+        raise HTTPException(status_code=404, detail="Kundli not found for this session")
+
+    chart_exports: list[Dict[str, Any]] = []
+    for chart_code in get_chart_codes_for_plan(plan_access):
+        try:
+            details = build_chart_planet_details(kundli, chart_code)
+            payload = build_chart_export_payload(kundli, chart_code, style, details)
+        except HTTPException:
+            raise
+        except Exception:
+            logger.exception("Failed to build chart export payload for session_id=%s chart_code=%s", session_id, chart_code)
+            raise HTTPException(status_code=500, detail="Failed to prepare chart export")
+        chart_exports.append(payload)
+
+    return JSONResponse(
+        content={
+            "name": (session_doc or {}).get("full_name") or "Untitled Reading",
+            "session_id": session_id,
+            "style": style,
+            "plan": plan_access["plan"],
+            "is_premium": plan_access["is_premium"],
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "charts": chart_exports,
         }
     )
 
