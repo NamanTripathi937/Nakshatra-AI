@@ -1,6 +1,7 @@
 "use client"
 
 import React, { useEffect, useState } from "react"
+import Image from "next/image"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 
@@ -253,22 +254,40 @@ export default function KundaliPage() {
               </div>
             </div>
 
-            <Card className="rounded-[1.8rem] border border-white/10 bg-slate-950/58 p-5 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
-              <div className="text-sm font-semibold uppercase tracking-[0.16em] text-cyan-100">
-                What this free kundli flow includes
+            <div className="space-y-4">
+              <div className="hero-logo-stage relative mx-auto w-full max-w-[380px] lg:mr-0 lg:ml-auto">
+                <div className="hero-logo-glow" aria-hidden="true" />
+                <div className="hero-logo-shimmer" aria-hidden="true" />
+                <div className="hero-logo-orbit relative flex min-h-[240px] items-center justify-center px-2 pt-2 pb-1">
+                  <div className="hero-logo-ring" aria-hidden="true" />
+                  <Image
+                    src="/main-logo.png"
+                    alt="Nakshatra AI main logo"
+                    width={600}
+                    height={586}
+                    priority
+                    className="hero-logo-image relative z-10 mx-auto h-auto w-full max-w-[320px]"
+                  />
+                </div>
               </div>
-              <div className="mt-4 space-y-4 text-sm leading-6 text-slate-300">
-                <p>
-                  Every account gets five free questions each day, and those questions stay attached to the generated kundli instead of floating separately from the chart context.
-                </p>
-                <p>
-                  You can generate your own chart or someone else&apos;s chart if you have the birth details and want to explore marriage, career, family, timing, and compatibility questions sincerely.
-                </p>
-                <p>
-                  Recent readings stay saved to the account so you can reopen sessions and continue the same line of questioning without losing the underlying kundli.
-                </p>
-              </div>
-            </Card>
+
+              <Card className="rounded-[1.8rem] border border-white/10 bg-slate-950/58 p-5 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
+                <div className="text-sm font-semibold uppercase tracking-[0.16em] text-cyan-100">
+                  What this free kundli flow includes
+                </div>
+                <div className="mt-4 space-y-4 text-sm leading-6 text-slate-300">
+                  <p>
+                    Every account gets five free questions each day, and those questions stay attached to the generated kundli instead of floating separately from the chart context.
+                  </p>
+                  <p>
+                    You can generate your own chart or someone else&apos;s chart if you have the birth details and want to explore marriage, career, family, timing, and compatibility questions sincerely.
+                  </p>
+                  <p>
+                    Recent readings stay saved to the account so you can reopen sessions and continue the same line of questioning without losing the underlying kundli.
+                  </p>
+                </div>
+              </Card>
+            </div>
           </div>
         </section>
 

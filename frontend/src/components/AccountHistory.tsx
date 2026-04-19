@@ -40,6 +40,100 @@ type SessionHistoryResponse = {
   sessions: SessionHistoryItem[]
 }
 
+type CachedSessionHistory = {
+  fetchedAt: number
+  sessions: SessionHistoryItem[]
+}
+
+const HISTORY_CACHE_PREFIX = "nakshatra_session_history"
+const pendingHistoryRequests = new Map<string, Promise<SessionHistoryItem[]>>()
+const memoryHistoryCache = new Map<string, CachedSessionHistory>()
+
+function buildHistoryCacheKey(userId: string, limit?: number) {
+  return `${HISTORY_CACHE_PREFIX}:${userId}:${typeof limit === "number" ? limit : "all"}`
+}
+
+function readCachedHistory(cacheKey: string) {
+  const memoryValue = memoryHistoryCache.get(cacheKey)
+  if (memoryValue) return memoryValue
+  if (typeof window === "undefined") return null
+
+  try {
+    const rawValue = window.localStorage.getItem(cacheKey)
+    if (!rawValue) return null
+    const parsed = JSON.parse(rawValue) as CachedSessionHistory
+    if (!Array.isArray(parsed?.sessions)) return null
+    memoryHistoryCache.set(cacheKey, parsed)
+    return parsed
+  } catch {
+    return null
+  }
+}
+
+function writeCachedHistory(cacheKey: string, sessions: SessionHistoryItem[]) {
+  const payload: CachedSessionHistory = {
+    fetchedAt: Date.now(),
+    sessions,
+  }
+  memoryHistoryCache.set(cacheKey, payload)
+  if (typeof window === "undefined") return
+  try {
+    window.localStorage.setItem(cacheKey, JSON.stringify(payload))
+  } catch {
+    // ignore storage failures
+  }
+}
+
+async function fetchSessionHistory({
+  backendUrl,
+  token,
+  limit,
+  cacheKey,
+}: {
+  backendUrl: string
+  token: string
+  limit?: number
+  cacheKey: string
+}) {
+  const existingRequest = pendingHistoryRequests.get(cacheKey)
+  if (existingRequest) {
+    return existingRequest
+  }
+
+  const requestPromise = (async () => {
+    const historyUrl = new URL(`${backendUrl}/sessions`)
+    if (typeof limit === "number" && limit > 0) {
+      historyUrl.searchParams.set("limit", String(limit))
+    }
+
+    const res = await fetch(historyUrl.toString(), {
+      headers: buildAuthHeaders(token),
+    })
+    if (!res.ok) {
+      let message = "Failed to load your reading history."
+      try {
+        const data = await res.json()
+        message = data?.detail?.message || data?.detail || data?.error || message
+      } catch {
+        // ignore parse failure
+      }
+      throw new Error(message)
+    }
+
+    const data: SessionHistoryResponse = await res.json()
+    const sessions = data.sessions || []
+    writeCachedHistory(cacheKey, sessions)
+    return sessions
+  })()
+
+  pendingHistoryRequests.set(cacheKey, requestPromise)
+  try {
+    return await requestPromise
+  } finally {
+    pendingHistoryRequests.delete(cacheKey)
+  }
+}
+
 function formatBirthDate(item: SessionHistoryItem) {
   const birthDate = item.birth_date
   if (!birthDate?.year || !birthDate?.month || !birthDate?.date) {
@@ -174,34 +268,31 @@ export default function AccountHistory({
     if (!open || !token || !user) return
 
     let cancelled = false
+    const activeToken = token
+    const cacheKey = buildHistoryCacheKey(user.id, limit)
+    const cachedHistory = readCachedHistory(cacheKey)
+
+    if (cachedHistory?.sessions?.length) {
+      setItems(cachedHistory.sessions)
+      setLoading(false)
+    }
 
     async function loadHistory() {
-      setLoading(true)
+      if (!cachedHistory?.sessions?.length) {
+        setLoading(true)
+      }
       setError("")
       try {
-        const historyUrl = new URL(`${backendUrl}/sessions`)
-        if (typeof limit === "number" && limit > 0) {
-          historyUrl.searchParams.set("limit", String(limit))
-        }
-
-        const res = await fetch(historyUrl.toString(), {
-          headers: buildAuthHeaders(token),
+        const sessions = await fetchSessionHistory({
+          backendUrl,
+          token: activeToken,
+          limit,
+          cacheKey,
         })
-        if (!res.ok) {
-          let message = "Failed to load your reading history."
-          try {
-            const data = await res.json()
-            message = data?.detail?.message || data?.detail || data?.error || message
-          } catch {
-            // ignore parse failure
-          }
-          throw new Error(message)
-        }
-        const data: SessionHistoryResponse = await res.json()
         if (!cancelled) {
-          setItems(data.sessions || [])
-          for (const session of data.sessions || []) {
-            router.prefetch(`/chatWindow/${session.session_id}`)
+          setItems(sessions)
+          for (const session of sessions.slice(0, Math.min(limit ?? sessions.length, 3))) {
+            void router.prefetch(`/chatWindow/${session.session_id}`)
           }
         }
       } catch (err) {

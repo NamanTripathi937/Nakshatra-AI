@@ -719,7 +719,6 @@ async def get_session(request: Request, session_id: str):
 @app.get("/sessions")
 async def list_sessions(request: Request):
     user_doc = await get_current_user(request)
-    user_doc = await refresh_user_account_state(user_doc)
     session_limit = parse_session_history_limit(request.query_params.get("limit"))
 
     cursor = (
