@@ -288,7 +288,7 @@ def write_report(report: dict[str, Any]) -> Path:
 def main() -> None:
     load_environment()
     session = build_session()
-    site_url = (os.getenv("SEO_SITE_URL") or os.getenv("NEXT_PUBLIC_SITE_URL") or "https://nakshatra-ai.vercel.app").rstrip("/")
+    site_url = (os.getenv("SEO_SITE_URL") or os.getenv("NEXT_PUBLIC_SITE_URL") or "https://nakshatra-ai.tech").rstrip("/")
     property_url = os.getenv("GOOGLE_SEARCH_CONSOLE_PROPERTY", f"{site_url}/")
     homepage_url = f"{site_url}/"
     sitemap_url = f"{site_url}/sitemap.xml"

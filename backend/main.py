@@ -400,8 +400,10 @@ app = FastAPI(title="Nakshatra AI Backend", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "https://nakshatra-ai.vercel.app",  # deployed frontend
-       "http://localhost:3000",            # for local dev convenience
+        "https://nakshatra-ai.tech",        # primary production frontend
+        "https://www.nakshatra-ai.tech",    # secondary production frontend
+        "https://nakshatra-ai.vercel.app",  # legacy Vercel frontend
+        "http://localhost:3000",            # local development
     ],
     allow_credentials=True,                 
     allow_methods=["*"],                    

@@ -2,7 +2,7 @@ import type { Metadata } from "next"
 
 export const SITE_NAME = "Nakshatra AI"
 export const SITE_URL =
-  (process.env.NEXT_PUBLIC_SITE_URL || "https://nakshatra-ai.vercel.app").replace(/\/$/, "")
+  (process.env.NEXT_PUBLIC_SITE_URL || "https://nakshatra-ai.tech").replace(/\/$/, "")
 export const DEFAULT_OG_IMAGE = "/opengraph-image"
 
 type PageMetadataInput = {
