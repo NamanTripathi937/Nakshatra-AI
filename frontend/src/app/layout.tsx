@@ -19,6 +19,8 @@ const geistMono = Geist_Mono({
 });
 
 const ADSENSE_CLIENT_ID = process.env.NEXT_PUBLIC_ADSENSE_CLIENT_ID
+const GOOGLE_ADSENSE_ACCOUNT =
+  process.env.NEXT_PUBLIC_GOOGLE_ADSENSE_ACCOUNT || "ca-pub-5297126579043947"
 const BING_SITE_VERIFICATION = process.env.NEXT_PUBLIC_BING_SITE_VERIFICATION
 const GOOGLE_SITE_VERIFICATION =
   process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION ||
@@ -122,6 +124,7 @@ export default function RootLayout({
         {BING_SITE_VERIFICATION ? (
           <meta name="msvalidate.01" content={BING_SITE_VERIFICATION} />
         ) : null}
+        <meta name="google-adsense-account" content={GOOGLE_ADSENSE_ACCOUNT} />
       </head>
 
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
