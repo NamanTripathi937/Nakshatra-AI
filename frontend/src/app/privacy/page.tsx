@@ -1,23 +1,33 @@
 import type { Metadata } from "next"
 
+import JsonLd from "@/components/JsonLd"
 import { Card } from "@/components/ui/card"
 import StaticPageLayout from "@/components/StaticPageLayout"
 import { buildPageMetadata } from "@/lib/site"
+import { buildStaticPageJsonLd } from "@/lib/structured-data"
+
+const title = "Privacy Policy"
+const description =
+  "Read how Nakshatra AI handles account data, birth details, saved kundli sessions, analytics, billing records, and third-party services."
 
 export const metadata: Metadata = buildPageMetadata({
-  title: "Privacy Policy",
-  description:
-    "Read how Nakshatra AI handles account data, birth details, saved kundli sessions, analytics, billing records, and third-party services.",
+  title,
+  description,
   path: "/privacy",
 })
 
 export default function PrivacyPage() {
   return (
-    <StaticPageLayout
-      eyebrow="Privacy"
-      title="How Nakshatra AI handles account data, chart inputs, and supporting services."
-      intro="This page gives a plain-language overview of the data used by the site. It is meant to explain the main product flows clearly, especially around sign-in, stored readings, payments, analytics, and ads."
-    >
+    <>
+      <JsonLd
+        id="privacy-page-jsonld"
+        data={buildStaticPageJsonLd({ title, description, path: "/privacy" })}
+      />
+      <StaticPageLayout
+        eyebrow="Privacy"
+        title="How Nakshatra AI handles account data, chart inputs, and supporting services."
+        intro="This page gives a plain-language overview of the data used by the site. It is meant to explain the main product flows clearly, especially around sign-in, stored readings, payments, analytics, and ads."
+      >
       <Card className="rounded-[1.8rem] border border-white/10 bg-slate-950/72 p-6 text-white sm:p-7">
         <h2 className="text-xl font-semibold">Information the site may collect</h2>
         <ul className="mt-4 space-y-3 text-sm leading-6 text-slate-300">
@@ -66,6 +76,7 @@ export default function PrivacyPage() {
           Operational and compliance handling may vary depending on what data is involved.
         </p>
       </Card>
-    </StaticPageLayout>
+      </StaticPageLayout>
+    </>
   )
 }

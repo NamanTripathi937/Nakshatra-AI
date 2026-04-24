@@ -2,9 +2,11 @@
 import type { Metadata } from "next";
 import AppProviders from "../components/AppProviders";
 import AppShell from "../components/AppShell";
+import JsonLd from "@/components/JsonLd";
 import Script from "next/script";
 import { Geist, Geist_Mono } from "next/font/google";
-import { DEFAULT_OG_IMAGE, SITE_NAME, SITE_URL } from "@/lib/site";
+import { DEFAULT_OG_IMAGE, SITE_DESCRIPTION, SITE_NAME, SITE_URL } from "@/lib/site";
+import { buildRootJsonLd } from "@/lib/structured-data";
 // @ts-ignore - side-effect CSS import has no type declarations
 import "./global.css";
 
@@ -32,8 +34,8 @@ export const metadata: Metadata = {
     default: SITE_NAME,
     template: "%s | Nakshatra AI",
   },
-  description:
-    "Free kundli, numerology, AI Vedic astrology readings, Navamsa insights, Vimshottari dasha timing, kundli matching, and chart-based guidance rooted in classical Jyotish logic.",
+  applicationName: SITE_NAME,
+  description: SITE_DESCRIPTION,
   keywords: [
     "nakshatra ai",
     "free kundli",
@@ -52,6 +54,13 @@ export const metadata: Metadata = {
   robots: {
     index: true,
     follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+      "max-video-preview": -1,
+    },
   },
   verification: {
     google: GOOGLE_SITE_VERIFICATION,
@@ -90,27 +99,6 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const structuredData = [
-    {
-      "@context": "https://schema.org",
-      "@type": "WebSite",
-      url: SITE_URL,
-      name: SITE_NAME,
-      description:
-        "Free kundli generation, numerology, and chart-aware AI Vedic astrology readings focused on Lagna, Navamsa, dashas, remedies, and compatibility.",
-    },
-    {
-      "@context": "https://schema.org",
-      "@type": "Organization",
-      name: SITE_NAME,
-      url: SITE_URL,
-      founder: {
-        "@type": "Person",
-        name: "Naman Tripathi",
-      },
-    },
-  ];
-
   return (
     <html lang="en">
       <head suppressHydrationWarning>
@@ -150,11 +138,7 @@ export default function RootLayout({
         <AppProviders>
           <AppShell>{children}</AppShell>
         </AppProviders>
-        <script
-          type="application/ld+json"
-          // eslint-disable-next-line react/no-danger
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
-        />
+        <JsonLd id="nakshatra-root-jsonld" data={buildRootJsonLd()} />
       </body>
     </html>
   );

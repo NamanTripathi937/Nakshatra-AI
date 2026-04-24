@@ -1,5 +1,6 @@
 'use client';
 import { useState } from "react";
+import Link from "next/link";
 import { Crown, History, Home, LogOut, Menu, Sparkles } from "lucide-react";
 
 import AccountHistory from "@/components/AccountHistory";
@@ -40,16 +41,23 @@ export default function Header() {
           <header className="backdrop-blur-md border-b border-gray-700 shadow-sm mb-4 bg-black/20">
             <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-1.5 px-3 py-3 lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] lg:gap-3 lg:px-6 lg:py-4">
               <div className="flex items-center justify-start">
-                <Home
-                  className="h-5 w-5 shrink-0 cursor-pointer text-white hover:text-blue-400 lg:h-6 lg:w-6"
-                  onClick={() => (window.location.href = '/')}
-                />
+                <Link
+                  href="/"
+                  aria-label="Nakshatra AI home"
+                  className="inline-flex text-white transition-colors hover:text-blue-400"
+                >
+                  <Home className="h-5 w-5 shrink-0 lg:h-6 lg:w-6" aria-hidden="true" />
+                </Link>
               </div>
 
-              <h1 className="truncate px-1 text-center text-sm font-bold tracking-[0.18em] bg-gradient-to-r from-white to-blue-300 bg-clip-text text-transparent lg:px-2 lg:text-2xl lg:tracking-normal">
+              <Link
+                href="/"
+                aria-label="Nakshatra AI home"
+                className="truncate px-1 text-center text-sm font-bold tracking-[0.18em] bg-gradient-to-r from-white to-blue-300 bg-clip-text text-transparent lg:px-2 lg:text-2xl lg:tracking-normal"
+              >
                 <span className="lg:hidden">NAKSHATRA</span>
                 <span className="hidden lg:inline">✦ N A K S H A T R A ✦</span>
-              </h1>
+              </Link>
 
               <div className="flex items-center justify-end gap-1 lg:gap-2">
                 {user ? (

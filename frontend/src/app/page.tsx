@@ -1,12 +1,16 @@
 import type { Metadata } from "next"
 
+import JsonLd from "@/components/JsonLd"
 import KundaliPage from "../components/KundaliPage"
-import { buildPageMetadata } from "@/lib/site"
+import { SITE_DESCRIPTION, buildPageMetadata } from "@/lib/site"
+import { buildStaticPageJsonLd } from "@/lib/structured-data"
+
+const title = "Free Kundli Online & AI Vedic Astrology | Nakshatra AI"
+const description = SITE_DESCRIPTION
 
 export const metadata: Metadata = buildPageMetadata({
-  title: "Free Kundli & AI Vedic Astrology Reading",
-  description:
-    "Generate a free kundli online, calculate numerology, ask chart-aware AI Vedic astrology questions, and explore Navamsa, Vimshottari dasha, kundli matching, panchang, and relationship timing.",
+  title,
+  description,
   path: "/",
   keywords: [
     "free kundli",
@@ -20,5 +24,18 @@ export const metadata: Metadata = buildPageMetadata({
 })
 
 export default function HomePage() {
-  return <KundaliPage />
+  return (
+    <>
+      <JsonLd
+        id="home-page-jsonld"
+        data={buildStaticPageJsonLd({
+          title,
+          description,
+          path: "/",
+          breadcrumbs: [{ name: "Home", path: "/" }],
+        })}
+      />
+      <KundaliPage />
+    </>
+  )
 }

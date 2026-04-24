@@ -69,9 +69,9 @@ export default function KundaliForm({ onSubmit, loading }: { onSubmit: (data: an
         <div className="mb-2 text-center lg:mb-1">
           <div className="mb-3 flex items-center justify-center lg:mb-2">
             <span className="text-2xl mr-3">🌕</span>
-            <h1 className="text-xl font-bold bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">
+            <h2 className="text-xl font-bold bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">
               Enter Your Birth Details
-            </h1>
+            </h2>
           </div>
         </div>
 
