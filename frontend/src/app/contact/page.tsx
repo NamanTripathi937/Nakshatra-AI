@@ -1,23 +1,33 @@
 import type { Metadata } from "next"
 
+import JsonLd from "@/components/JsonLd"
 import { Card } from "@/components/ui/card"
 import StaticPageLayout from "@/components/StaticPageLayout"
 import { buildPageMetadata } from "@/lib/site"
+import { buildStaticPageJsonLd } from "@/lib/structured-data"
+
+const title = "Contact Nakshatra AI"
+const description =
+  "Contact Nakshatra AI for support, account issues, billing problems, feature feedback, and chart-reading bug reports."
 
 export const metadata: Metadata = buildPageMetadata({
-  title: "Contact Nakshatra AI",
-  description:
-    "Contact Nakshatra AI for support, account issues, billing problems, feature feedback, and chart-reading bug reports.",
+  title,
+  description,
   path: "/contact",
 })
 
 export default function ContactPage() {
   return (
-    <StaticPageLayout
-      eyebrow="Contact"
-      title="Reach the project through the channels already tied to the product."
-      intro="If you need help with account access, billing flow, or a chart-reading issue, the fastest path is to email with the session context that caused the problem and enough detail to reproduce it."
-    >
+    <>
+      <JsonLd
+        id="contact-page-jsonld"
+        data={buildStaticPageJsonLd({ title, description, path: "/contact" })}
+      />
+      <StaticPageLayout
+        eyebrow="Contact"
+        title="Reach the project through the channels already tied to the product."
+        intro="If you need help with account access, billing flow, or a chart-reading issue, the fastest path is to email with the session context that caused the problem and enough detail to reproduce it."
+      >
       <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
         <Card className="rounded-[1.8rem] border border-white/10 bg-slate-950/72 p-6 text-white sm:p-7">
           <h2 className="text-xl font-semibold">Best ways to get in touch</h2>
@@ -79,6 +89,7 @@ export default function ContactPage() {
           steps, screenshots, and session details usually lead to the quickest resolution.
         </p>
       </Card>
-    </StaticPageLayout>
+      </StaticPageLayout>
+    </>
   )
 }

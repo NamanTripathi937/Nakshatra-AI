@@ -312,6 +312,23 @@ def current_jd_utc():
     return now_utc, swe.julday(now_utc.year, now_utc.month, now_utc.day, frac_hour)
 
 
+def build_gochar_entry(name, longitude_deg, cusps_used, moon_sign_index=None, retrograde=False):
+    sign_index, sign_name, degree_in_sign = zodiac_sign_from_longitude(longitude_deg)
+    entry = {
+        "name": name,
+        "longitude_deg": round(normalize_angle(longitude_deg), 6),
+        "sign": sign_name,
+        "sign_index": sign_index + 1,
+        "degree_in_sign": round(degree_in_sign, 6),
+        "nakshatra": get_nakshatra_details(longitude_deg),
+        "house_from_lagna": get_house_for_longitude(longitude_deg, cusps_used),
+        "retrograde": bool(retrograde),
+    }
+    if moon_sign_index:
+        entry["house_from_natal_moon"] = house_distance(moon_sign_index, sign_index + 1)
+    return entry
+
+
 def house_distance(from_house, to_house):
     return ((int(to_house) - int(from_house)) % 12) + 1
 
@@ -586,6 +603,70 @@ def build_vedic_planet_map(planets_out, cusps_used):
         }
 
     return vedic_map
+
+
+def compute_current_gochar(cusps_used, natal_planets_out):
+    natal_planet_map = {planet["name"]: planet for planet in natal_planets_out if "error" not in planet}
+    moon = natal_planet_map.get("Moon")
+    moon_sign_index = moon.get("sign_index") if moon else None
+
+    swe.set_sid_mode(swe.SIDM_LAHIRI)
+    evaluated_at, now_jd = current_jd_utc()
+
+    transit_planets = {}
+    for planet_name in CLASSICAL_PLANETS + ["TrueNode"]:
+        pcode = PLANETS[planet_name]
+        xx, _ = swe.calc_ut(now_jd, pcode, swe.FLG_SIDEREAL)
+        longitude_deg = normalize_angle(xx[0])
+        speed = safe_calc_speed(now_jd, pcode)
+        transit_planets[planet_name] = build_gochar_entry(
+            "Rahu" if planet_name == "TrueNode" else planet_name,
+            longitude_deg,
+            cusps_used,
+            moon_sign_index=moon_sign_index,
+            retrograde=(speed is not None and speed < 0),
+        )
+
+    rahu = transit_planets.pop("TrueNode")
+    transit_planets["Rahu"] = rahu
+    ketu_lon = normalize_angle(rahu["longitude_deg"] + 180.0)
+    transit_planets["Ketu"] = build_gochar_entry(
+        "Ketu",
+        ketu_lon,
+        cusps_used,
+        moon_sign_index=moon_sign_index,
+        retrograde=rahu.get("retrograde", False),
+    )
+
+    asc_sign_index, asc_sign_name, _ = zodiac_sign_from_longitude(cusps_used[0])
+    return {
+        "evaluated_at": evaluated_at.isoformat(),
+        "reference": {
+            "lagna_sign": asc_sign_name,
+            "lagna_sign_index": asc_sign_index + 1,
+            "moon_sign": moon.get("sign") if moon else None,
+            "moon_sign_index": moon_sign_index,
+            "node_basis": "TrueNode",
+        },
+        "focus": {
+            name: transit_planets[name]
+            for name in ["Moon", "Sun", "Mars", "Mercury", "Jupiter", "Venus", "Saturn", "Rahu", "Ketu"]
+            if name in transit_planets
+        },
+    }
+
+
+def enrich_kundli_with_current_gochar(kundli):
+    cusps_dict = kundli.get("house_cusps_deg") or {}
+    cusps_used = []
+    for house_no in range(1, 13):
+        value = cusps_dict.get(str(house_no))
+        if value is None:
+            return kundli
+        cusps_used.append(float(value))
+
+    kundli["gochar"] = compute_current_gochar(cusps_used, kundli.get("planets") or [])
+    return kundli
 
 
 def compute_vedic_aspects(cusps_used, planets_out):
@@ -1236,6 +1317,7 @@ def generate_chart(birth, house_system='WS'):
         "planets": planets_out,
         "planetary_conditions": condition_data,
         "vedic_aspects": aspect_data,
+        "gochar": compute_current_gochar(cusps_used, planets_out),
         "yoga_analysis": yoga_data,
         "current_dasha": dasha_data["current"],
         "vimshottari_dasha": dasha_data,

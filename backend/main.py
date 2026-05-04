@@ -38,6 +38,7 @@ from astro.astro import (
     EXALTATION_SIGNS,
     MOOLATRIKONA_RANGES,
     OWN_SIGNS,
+    enrich_kundli_with_current_gochar,
     generate_chart,
 )
 from auth import (
@@ -2740,6 +2741,33 @@ def summarize_aspect_notes(kundli: Dict[str, Any]) -> list[str]:
     return lines
 
 
+def summarize_gochar_notes(kundli: Dict[str, Any]) -> list[str]:
+    gochar = kundli.get("gochar") or {}
+    focus = gochar.get("focus") or {}
+    evaluated_at = gochar.get("evaluated_at")
+    lines: list[str] = []
+
+    if evaluated_at:
+        lines.append(f"- Evaluated at: {evaluated_at}.")
+
+    for name in ["Moon", "Jupiter", "Saturn", "Rahu", "Ketu"]:
+        planet = focus.get(name)
+        if not planet:
+            continue
+        line = (
+            f"- {name}: {planet.get('sign')} "
+            f"{planet.get('house_from_lagna')}H from Lagna"
+        )
+        if planet.get("house_from_natal_moon") is not None:
+            line += f", {planet.get('house_from_natal_moon')}H from natal Moon"
+        if planet.get("retrograde"):
+            line += ", retrograde"
+        line += "."
+        lines.append(line)
+
+    return lines
+
+
 def build_detailed_chart_summary(kundli: Dict[str, Any], profile: Optional[Dict[str, Any]] = None) -> str:
     profile = profile or {}
     planet_lookup = build_planet_lookup(kundli)
@@ -2787,6 +2815,11 @@ def build_detailed_chart_summary(kundli: Dict[str, Any], profile: Optional[Dict[
     lines.append(f"Current period: {current_line}")
     lines.append(f"Upcoming periods: {upcoming_line}")
 
+    gochar_notes = summarize_gochar_notes(kundli)
+    if gochar_notes:
+        lines.append("Current gochar:")
+        lines.extend(gochar_notes)
+
     divisional_notes = summarize_divisional_notes(kundli)
     if divisional_notes:
         lines.append("Divisional notes:")
@@ -2830,6 +2863,10 @@ def build_free_tier_chart_summary(kundli: Dict[str, Any], profile: Optional[Dict
     lines.append(f"Key yogas: {summarize_yogas(kundli)}")
     lines.append(f"Current dasha: {current_line}")
     lines.append(f"Upcoming periods: {upcoming_line}")
+    gochar_notes = summarize_gochar_notes(kundli)
+    if gochar_notes:
+        lines.append("Current gochar:")
+        lines.extend(gochar_notes)
     aspect_notes = summarize_aspect_notes(kundli)
     if aspect_notes:
         lines.append("Aspect highlights:")
@@ -3831,7 +3868,7 @@ def build_kundli_prompt(
             "1. NEVER ask for birth details. They are already available.\n"
             "2. DO NOT recalculate Mahadasha or Antardasha. Use the given data only.\n"
             "3. This message should feel premium, insightful, human, and welcoming, not like a raw placement dump.\n"
-            "4. Focus on what is special about the chart: baseline nature, hidden emotional layer, promise/potential, and the current dasha chapter.\n"
+            "4. Focus on what is special about the chart: baseline nature, hidden emotional layer, promise/potential, and the current dasha-gochar chapter.\n"
             "5. Mention only 3 to 4 chart signatures that are genuinely the most compelling.\n"
             "6. If a yoga is strong, present it confidently in plain language. If a yoga is conditional, mention it only with nuance.\n"
             "7. Use crisp, premium Markdown formatting with bold headers and tasteful emojis. No tables.\n"
@@ -3847,7 +3884,7 @@ def build_kundli_prompt(
             "### 💠 **The promise in this chart**\n"
             "One short paragraph.\n"
             "### 🔮 **Your current chapter**\n"
-            "One short paragraph using the current dasha.\n"
+            "One short paragraph using the current dasha together with the current gochar.\n"
             "Final line: a single warm question offering career, relationships, or purpose, with 1 to 3 tasteful emojis.\n\n"
             "### Style Guidance\n"
             "- Sound insightful, specific, and elegant.\n"
@@ -3864,7 +3901,7 @@ def build_kundli_prompt(
             "Use only the provided chart data and keep the experience warm, clear, and concise.\n\n"
             "### Free Tier Rules\n"
             "1. NEVER ask for birth details.\n"
-            "2. Use only the natal chart and current dasha context. Do not rely on divisional charts, remedies, or premium extras.\n"
+            "2. Use the natal chart together with the current dasha and current gochar context. Do not rely on divisional charts, remedies, or premium extras.\n"
             "3. Keep this reading to 130 to 170 words.\n"
             "4. Focus on overall personality, one major strength, one growth theme, and the current chapter.\n"
             "5. End with a gentle note that deeper chart analysis is available in Premium.\n\n"
@@ -4248,26 +4285,30 @@ async def chat(request: Request):
     chart_summary = get_chart_summary(session_id)
     prompt_chart_summary = chart_summary
     if kundli:
-        if not chart_summary:
-            chart_summary = build_detailed_chart_summary(kundli)
-            store_chart_summary(session_id, chart_summary)
+        kundli = enrich_kundli_with_current_gochar(kundli)
+        store_kundli(session_id, kundli)
+
+        chart_summary = build_detailed_chart_summary(kundli)
+        store_chart_summary(session_id, chart_summary)
         prompt_chart_summary = chart_summary if plan_access["is_premium"] else build_free_tier_chart_summary(kundli)
         ensure_chart_summary_in_memory(chain, prompt_chart_summary)
         response_style = build_response_style_instructions(user_query=user_query)
         reasoning_framework = build_astrology_reasoning_framework(user_query=user_query)
         premium_guidance = (
-            "Answer directly and support your conclusions with the most relevant placements, house lords, yogas, aspects, dashas, or divisional-chart notes.\n"
+            "Before giving the answer, judge the natal promise together with the current dasha and the current gochar.\n"
+            "Answer directly and support your conclusions with the most relevant placements, house lords, yogas, aspects, dashas, gochar, or divisional-chart notes.\n"
             "Do not invent chart facts, yogas, dates, or remedies beyond the provided rule-based remedy notes.\n"
         )
         free_guidance = (
             "Keep the answer concise and practical.\n"
-            "Use only natal-chart evidence plus the current dasha. Do not use divisional charts, remedies, compatibility scoring, transit predictions, or PDF-style report language.\n"
+            "Before giving the answer, judge the natal promise together with the current dasha and the current gochar.\n"
+            "Use natal-chart evidence, current dasha, and current gochar. Do not use divisional charts, remedies, compatibility scoring, or PDF-style report language.\n"
             "If the user asks for a Premium-only feature, briefly say it is unlocked on Premium.\n"
         )
         evidence_rules = (
             "Evidence rules:\n"
             "1. Do not answer in a generic self-help way.\n"
-            "2. Explicitly mention at least two concrete astrological reasons from the chart, such as a planet in a sign/house, a house lord placement, a named yoga, an aspect, or the current dasha.\n"
+            "2. Explicitly mention at least two concrete astrological reasons from the chart, such as a planet in a sign/house, a house lord placement, a named yoga, an aspect, the current dasha, or the current gochar.\n"
             "3. When giving a conclusion, tie it back to those chart factors in plain language.\n"
             "4. For health questions, discuss astrological tendencies, vitality patterns, and vulnerable areas carefully, but do not present medical diagnosis or treatment.\n"
             "5. For friendship or social-circle questions, judge mainly through the 3rd and 11th houses and the relevant karakas instead of giving generic friendship advice.\n"

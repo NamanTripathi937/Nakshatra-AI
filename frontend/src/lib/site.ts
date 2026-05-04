@@ -1,8 +1,23 @@
 import type { Metadata } from "next"
 
 export const SITE_NAME = "Nakshatra AI"
-export const SITE_URL =
-  (process.env.NEXT_PUBLIC_SITE_URL || "https://nakshatra-ai.tech").replace(/\/$/, "")
+export const SITE_DESCRIPTION =
+  "Generate a free kundli online, calculate numerology, ask chart-aware AI Vedic astrology questions, and explore Navamsa, Vimshottari dasha, kundli matching, panchang, and relationship timing."
+export const SITE_AUTHOR = "Naman Tripathi"
+export const SITE_SUPPORT_EMAIL = "namantripathi937@gmail.com"
+export const SEO_LAST_MODIFIED = "2026-04-24"
+
+const PREFERRED_SITE_URL = "https://www.nakshatra-ai.tech"
+
+function normalizeSiteUrl(value?: string) {
+  const trimmed = (value || PREFERRED_SITE_URL).replace(/\/$/, "")
+  const normalized = trimmed.startsWith("http") ? trimmed : `https://${trimmed}`
+  return normalized === "https://nakshatra-ai.tech" || normalized === "http://nakshatra-ai.tech"
+    ? PREFERRED_SITE_URL
+    : normalized.replace("http://www.nakshatra-ai.tech", PREFERRED_SITE_URL)
+}
+
+export const SITE_URL = normalizeSiteUrl(process.env.NEXT_PUBLIC_SITE_URL)
 export const DEFAULT_OG_IMAGE = "/opengraph-image"
 
 type PageMetadataInput = {
@@ -25,18 +40,32 @@ export function buildPageMetadata({
 }: PageMetadataInput): Metadata {
   const url = buildAbsoluteUrl(path)
 
-  return {
+  const metadata: Metadata = {
     title,
     description,
-    keywords,
     alternates: {
-      canonical: path,
+      canonical: url,
+      languages: {
+        en: url,
+      },
+    },
+    robots: {
+      index: true,
+      follow: true,
+      googleBot: {
+        index: true,
+        follow: true,
+        "max-image-preview": "large",
+        "max-snippet": -1,
+        "max-video-preview": -1,
+      },
     },
     openGraph: {
       title,
       description,
       url,
       siteName: SITE_NAME,
+      locale: "en_US",
       type: "website",
       images: [
         {
@@ -54,4 +83,10 @@ export function buildPageMetadata({
       images: [DEFAULT_OG_IMAGE],
     },
   }
+
+  if (keywords.length > 0) {
+    metadata.keywords = keywords
+  }
+
+  return metadata
 }

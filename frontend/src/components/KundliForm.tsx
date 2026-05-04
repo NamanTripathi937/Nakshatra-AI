@@ -66,9 +66,9 @@ const handleInputChange = (field: string, value: string) => {
         <div className="text-center mb-2">
           <div className="flex items-center justify-center mb-3">
             <span className="text-2xl mr-3">🌕</span>
-            <h1 className="text-xl font-bold bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">
+            <h2 className="text-xl font-bold bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">
               Enter Your Birth Details
-            </h1>
+            </h2>
           </div>
         </div>
 

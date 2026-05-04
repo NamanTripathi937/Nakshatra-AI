@@ -1,24 +1,34 @@
 import type { Metadata } from "next"
 
+import JsonLd from "@/components/JsonLd"
 import { Card } from "@/components/ui/card"
 import StaticPageLayout from "@/components/StaticPageLayout"
 import { buildPageMetadata } from "@/lib/site"
+import { buildStaticPageJsonLd } from "@/lib/structured-data"
+
+const title = "About Nakshatra AI"
+const description =
+  "Learn how Nakshatra AI approaches Vedic astrology, chart-aware readings, saved sessions, and practical kundli interpretation."
 
 export const metadata: Metadata = buildPageMetadata({
-  title: "About Nakshatra AI",
-  description:
-    "Learn how Nakshatra AI approaches Vedic astrology, chart-aware readings, saved sessions, and practical kundli interpretation.",
+  title,
+  description,
   path: "/about",
 })
 
 export default function AboutPage() {
   return (
-    <StaticPageLayout
-      eyebrow="About Nakshatra AI"
-      title="A guided Vedic astrology experience built for clarity, continuity, and practical use."
-      intro="Nakshatra AI combines structured birth-chart processing with conversational AI so users can generate a kundli, continue asking follow-up questions, and revisit saved readings inside one account-linked flow."
-    >
-      <Card className="rounded-[1.8rem] border border-white/10 bg-slate-950/72 p-6 text-white sm:p-7">
+    <>
+      <JsonLd
+        id="about-page-jsonld"
+        data={buildStaticPageJsonLd({ title, description, path: "/about" })}
+      />
+      <StaticPageLayout
+        eyebrow="About Nakshatra AI"
+        title="A guided Vedic astrology experience built for clarity, continuity, and practical use."
+        intro="Nakshatra AI combines structured birth-chart processing with conversational AI so users can generate a kundli, continue asking follow-up questions, and revisit saved readings inside one account-linked flow."
+      >
+        <Card className="rounded-[1.8rem] border border-white/10 bg-slate-950/72 p-6 text-white sm:p-7">
         <h2 className="text-xl font-semibold">What the product does</h2>
         <p className="mt-3 text-sm leading-7 text-slate-300">
           The site helps users generate a kundli from birth details, ask chart-based questions,
@@ -59,6 +69,7 @@ export default function AboutPage() {
           guaranteed prediction engine or professional diagnosis tool.
         </p>
       </Card>
-    </StaticPageLayout>
+      </StaticPageLayout>
+    </>
   )
 }
