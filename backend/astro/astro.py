@@ -139,6 +139,11 @@ DIVISIONAL_CHART_META = {
         "name": "Dashamsha",
         "purpose": "Career, profession, status, and public work",
     },
+    "D60": {
+        "division": 60,
+        "name": "Shashtiamsha",
+        "purpose": "Past-life karma, deepest karmic influences and subtle strengths/weaknesses",
+    },
 }
 
 
@@ -168,16 +173,28 @@ def get_nakshatra_details(lon):
 
 def get_divisional_chart_start_sign(sign_index, division):
     sign_index = int(sign_index) % 12
+
+    # D9
     if division == 9:
-        if sign_index in {0, 3, 6, 9}:  # movable
+        if sign_index in {0, 3, 6, 9}:      # Movable
             return sign_index
-        if sign_index in {1, 4, 7, 10}:  # fixed
+        if sign_index in {1, 4, 7, 10}:     # Fixed
             return (sign_index + 8) % 12
-        return (sign_index + 4) % 12  # dual
+        return (sign_index + 4) % 12        # Dual
+
+    # D10
     if division == 10:
-        if (sign_index + 1) % 2 == 1:  # odd signs
+        if (sign_index + 1) % 2 == 1:       # Odd
             return sign_index
-        return (sign_index + 8) % 12  # even signs start from 9th
+        return (sign_index + 8) % 12        # Even -> 9th
+
+    # D60
+    if division == 60:
+        # Parasara rule:
+        # Odd signs begin from Aries.
+        # Even signs begin from Libra.
+        return 0 if ((sign_index + 1) % 2 == 1) else 6
+
     raise ValueError(f"Unsupported divisional chart division: {division}")
 
 def get_divisional_longitude(lon, division):
@@ -1330,9 +1347,9 @@ def generate_chart(birth, house_system='WS'):
 # --------------- Demo ----------------
 if __name__ == "__main__":
     sample = {
-        "year": 2003, "month": 5, "day": 7,
-        "hour": 23, "minute": 30, "second": 0,
+        "year": 2003, "month": 5, "date": 7,
+        "hours": 23, "minutes": 40, "seconds": 0,
         "timezone": "Asia/Kolkata",
-        "latitude": 25.3708, "longitude":86.4734, "altitude_m": 216
+        "latitude": 25.22, "longitude": 86.28, "altitude_m": 216
     }
     print(generate_chart(sample, house_system="WS"))
