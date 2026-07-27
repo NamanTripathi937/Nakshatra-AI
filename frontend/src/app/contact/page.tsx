@@ -42,6 +42,13 @@ export default function ContactPage() {
               >
                 namantripathi937@gmail.com
               </a>
+              <br></br>
+              <a
+                href="mailto:kantaman2109@gmail.com"
+                className="mt-2 inline-block text-base font-medium text-white underline decoration-cyan-300/45 underline-offset-4"
+              >
+                kantaman2109@gmail.com
+              </a>
               <p className="mt-2 text-sm leading-6 text-slate-300">
                 Best for bug reports, billing issues, account-access problems, feature requests,
                 and any reproducible product issue.

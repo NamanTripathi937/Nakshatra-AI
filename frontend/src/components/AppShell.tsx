@@ -18,7 +18,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const footerContent = (
     <footer className="border-t border-white/8 bg-slate-950/28 px-4 py-3 backdrop-blur-md sm:px-6">
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 text-[11px] text-slate-300 sm:text-xs">
-        <div className="whitespace-nowrap">Made with ♥️ by Naman</div>
+        <div className="whitespace-nowrap">Made with ♥️ by Naman & Aman</div>
         <nav className="flex items-center gap-3 whitespace-nowrap">
           {footerLinks.map((link) => (
             <Link

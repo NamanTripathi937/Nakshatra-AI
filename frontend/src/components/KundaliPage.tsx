@@ -552,7 +552,7 @@ export default function KundaliPage() {
                 href="mailto:namantripathi937@gmail.com"
                 className="rounded-full border border-white/12 bg-white/8 px-4 py-2 text-slate-100 transition-colors hover:bg-white/14"
               >
-                Email Naman
+                Email Team
               </a>
             </div>
             <p className="mt-5 text-sm font-medium text-cyan-100">🙏 Om Namah Shivay</p>
